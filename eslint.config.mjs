@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // vendored, unminified/prebuilt asset copied verbatim from pdfjs-dist —
+    // not our source, not meant to be linted.
+    "public/pdf.worker.min.mjs",
   ]),
 ]);
 

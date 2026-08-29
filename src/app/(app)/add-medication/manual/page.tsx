@@ -12,7 +12,9 @@ import { ChoiceChips } from "@/components/ui/ChoiceChips";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Sheet } from "@/components/ui/Sheet";
-import type { InteractionResult, Severity } from "@/lib/supabase/types";
+import type { InteractionResult, MedicationSource, Severity } from "@/lib/supabase/types";
+
+const VALID_SOURCES: MedicationSource[] = ["manual", "search", "scan", "prescription_ocr"];
 
 const severityVariant: Record<Severity, "danger" | "warning" | "primary" | "neutral"> = {
   high: "danger",
@@ -67,7 +69,11 @@ function ManualEntryForm() {
   const [frequency, setFrequency] = useState<string>(FREQUENCY_VALUES[0]);
   const [timeOfDay, setTimeOfDay] = useState<string>(TIME_OF_DAY_VALUES[0]);
   const [duration, setDuration] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(searchParams.get("notes") ?? "");
+  const prefilledSourceParam = searchParams.get("source");
+  const prefilledSource: MedicationSource = VALID_SOURCES.includes(prefilledSourceParam as MedicationSource)
+    ? (prefilledSourceParam as MedicationSource)
+    : "manual";
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingResults, setPendingResults] = useState<InteractionResult[] | null>(null);
@@ -108,7 +114,7 @@ function ManualEntryForm() {
         frequency: frequencyText,
         category,
         notes: notes.trim() || null,
-        source: "manual",
+        source: prefilledSource,
       })
       .select()
       .single();

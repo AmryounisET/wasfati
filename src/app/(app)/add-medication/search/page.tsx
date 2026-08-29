@@ -49,6 +49,7 @@ export default function SearchMedicinePage() {
       generic: d.generic_name,
       dose: d.common_dose ?? "",
       category: d.category ?? "other",
+      source: "search",
     });
     router.push(`/add-medication/manual?${params.toString()}`);
   }
