@@ -165,7 +165,7 @@ const en: Dictionary = {
     prescriptionAnalyzing: "Reading prescription…",
     prescriptionErrorBody: "OCR isn't available right now. Try again, or enter the medicine manually.",
     prescriptionResultsTitle: "We found {count} medicine(s)",
-    prescriptionResultsSubtitle: "Tap one to review and save it. AI-read results can contain mistakes — always check against the original.",
+    prescriptionResultsSubtitle: "Tap one to review and save it. Automated reading can contain mistakes — always check against the original.",
     prescriptionEmptyTitle: "Couldn't read this file",
     prescriptionEmptyBody: "We couldn't confidently identify any medicines in it. Try a clearer photo, or enter it manually.",
     searchPlaceholder: "Search for a medicine name…",

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, RotateCcw, Camera } from "lucide-react";
+import { X, RotateCcw, Camera, Loader2 } from "lucide-react";
+import { recognizeMedicationCandidates } from "@/lib/ocr";
 import { Button } from "@/components/ui/Button";
 import { useTranslation } from "@/components/providers/LanguageProvider";
 
@@ -15,6 +16,8 @@ export default function ScanBoxPage() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,13 +77,33 @@ export default function ScanBoxPage() {
 
   function retake() {
     setCapturedImage(null);
+    setAnalyzeError(null);
   }
 
-  function useThisPhoto() {
-    // No OCR/box-reading is wired up yet — the honest next step is manual
-    // entry rather than pretending to have extracted anything from the
-    // photo.
-    router.push("/add-medication/manual");
+  async function useThisPhoto() {
+    if (!capturedImage) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const medications = await recognizeMedicationCandidates(capturedImage);
+      if (medications.length === 0) {
+        setAnalyzeError(t.addMedicine.prescriptionEmptyBody);
+        return;
+      }
+      const m = medications[0];
+      const params = new URLSearchParams({
+        name: m.name,
+        generic: m.name.toLowerCase(),
+        dose: m.dose ?? "",
+        category: "other",
+        source: "scan",
+      });
+      router.push(`/add-medication/manual?${params.toString()}`);
+    } catch {
+      setAnalyzeError(t.addMedicine.prescriptionErrorBody);
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   return (
@@ -122,12 +145,16 @@ export default function ScanBoxPage() {
       </div>
 
       {error && <p className="mt-4 text-center text-bodys text-danger-500">{error}</p>}
+      {analyzeError && <p className="mt-4 text-center text-bodys text-danger-500">{analyzeError}</p>}
 
       <div className="mt-6 space-y-3">
         {capturedImage ? (
           <>
-            <Button onClick={useThisPhoto}>{t.addMedicine.scanUsePhotoButton}</Button>
-            <Button variant="secondary" onClick={retake}>
+            <Button onClick={useThisPhoto} disabled={analyzing}>
+              {analyzing && <Loader2 size={16} className="animate-spin" />}
+              {analyzing ? t.addMedicine.prescriptionAnalyzing : t.addMedicine.scanUsePhotoButton}
+            </Button>
+            <Button variant="secondary" onClick={retake} disabled={analyzing}>
               <RotateCcw size={18} />
               {t.addMedicine.scanRetakeButton}
             </Button>

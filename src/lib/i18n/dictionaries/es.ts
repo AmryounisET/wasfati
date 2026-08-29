@@ -166,7 +166,7 @@ const es: Dictionary = {
     prescriptionAnalyzing: "Leyendo la receta…",
     prescriptionErrorBody: "El OCR no está disponible en este momento. Vuelve a intentarlo o introduce el medicamento manualmente.",
     prescriptionResultsTitle: "Encontramos {count} medicamento(s)",
-    prescriptionResultsSubtitle: "Toca uno para revisarlo y guardarlo. Los resultados leídos por IA pueden tener errores — verifica siempre con el original.",
+    prescriptionResultsSubtitle: "Toca uno para revisarlo y guardarlo. La lectura automática puede tener errores — verifica siempre con el original.",
     prescriptionEmptyTitle: "No se pudo leer este archivo",
     prescriptionEmptyBody: "No pudimos identificar con confianza ningún medicamento en él. Prueba con una foto más clara, o introdúcelo manualmente.",
     searchPlaceholder: "Buscar el nombre de un medicamento…",

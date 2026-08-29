@@ -165,7 +165,7 @@ const tr: Dictionary = {
     prescriptionAnalyzing: "Reçete okunuyor…",
     prescriptionErrorBody: "OCR şu anda kullanılamıyor. Tekrar deneyin veya ilacı manuel girin.",
     prescriptionResultsTitle: "{count} ilaç bulundu",
-    prescriptionResultsSubtitle: "İncelemek ve kaydetmek için birine dokunun. Yapay zeka okuma sonuçları hatalı olabilir — her zaman orijinal reçeteyle karşılaştırın.",
+    prescriptionResultsSubtitle: "İncelemek ve kaydetmek için birine dokunun. Otomatik okuma sonuçları hatalı olabilir — her zaman orijinal reçeteyle karşılaştırın.",
     prescriptionEmptyTitle: "Bu dosya okunamadı",
     prescriptionEmptyBody: "İçinde herhangi bir ilacı güvenle tanıyamadık. Daha net bir fotoğraf deneyin veya manuel girin.",
     searchPlaceholder: "Bir ilaç adı arayın…",

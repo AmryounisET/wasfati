@@ -165,7 +165,7 @@ const zh: Dictionary = {
     prescriptionAnalyzing: "正在读取处方…",
     prescriptionErrorBody: "OCR 服务当前不可用。请重试，或手动输入药物。",
     prescriptionResultsTitle: "找到 {count} 种药物",
-    prescriptionResultsSubtitle: "点击其中一项进行核对并保存。AI 识别结果可能有误——请务必与原始处方核对。",
+    prescriptionResultsSubtitle: "点击其中一项进行核对并保存。自动识别结果可能有误——请务必与原始处方核对。",
     prescriptionEmptyTitle: "无法读取此文件",
     prescriptionEmptyBody: "我们无法确信地识别出任何药物。请尝试更清晰的照片，或手动输入。",
     searchPlaceholder: "搜索药物名称…",

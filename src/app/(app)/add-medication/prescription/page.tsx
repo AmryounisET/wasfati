@@ -3,8 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Loader2, RotateCcw, ChevronRight, AlertTriangle } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { extractFunctionError } from "@/lib/edge-function-error";
+import { recognizeMedicationCandidates, type MedicationCandidate } from "@/lib/ocr";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Screen } from "@/components/layout/Screen";
 import { Banner } from "@/components/ui/Banner";
@@ -12,13 +11,6 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useTranslation } from "@/components/providers/LanguageProvider";
 import { interpolate } from "@/lib/i18n/get-dictionary";
-
-type ExtractedMedication = {
-  name: string;
-  generic_name: string | null;
-  dose: string | null;
-  frequency_hint: string | null;
-};
 
 const MAX_DIMENSION = 1600;
 
@@ -56,7 +48,6 @@ async function pdfFirstPageToDataUrl(file: File): Promise<string> {
 
 export default function PrescriptionUploadPage() {
   const router = useRouter();
-  const supabase = createClient();
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,7 +55,7 @@ export default function PrescriptionUploadPage() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [results, setResults] = useState<ExtractedMedication[] | null>(null);
+  const [results, setResults] = useState<MedicationCandidate[] | null>(null);
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -88,14 +79,7 @@ export default function PrescriptionUploadPage() {
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("ocr-prescription", {
-        body: { image: preview },
-      });
-      if (error || !data || data.error) {
-        setAnalyzeError(data?.error ?? (await extractFunctionError(error, t.addMedicine.prescriptionErrorBody)));
-        return;
-      }
-      setResults((data.medications as ExtractedMedication[]) ?? []);
+      setResults(await recognizeMedicationCandidates(preview));
     } catch {
       setAnalyzeError(t.addMedicine.prescriptionErrorBody);
     } finally {
@@ -110,14 +94,13 @@ export default function PrescriptionUploadPage() {
     setResults(null);
   }
 
-  function pick(m: ExtractedMedication) {
+  function pick(m: MedicationCandidate) {
     const params = new URLSearchParams({
       name: m.name,
-      generic: (m.generic_name || m.name).toLowerCase(),
+      generic: m.name.toLowerCase(),
       dose: m.dose ?? "",
       category: "other",
       source: "prescription_ocr",
-      ...(m.frequency_hint ? { notes: m.frequency_hint } : {}),
     });
     router.push(`/add-medication/manual?${params.toString()}`);
   }
@@ -201,9 +184,7 @@ export default function PrescriptionUploadPage() {
               >
                 <div>
                   <p className="text-h3 font-bold text-ink-900">{m.name}</p>
-                  <p className="text-caption text-ink-500">
-                    {[m.dose, m.frequency_hint].filter(Boolean).join(" · ") || m.generic_name}
-                  </p>
+                  {m.dose && <p className="text-caption text-ink-500">{m.dose}</p>}
                 </div>
                 <ChevronRight size={18} className="shrink-0 text-ink-400 rtl:rotate-180" />
               </button>
