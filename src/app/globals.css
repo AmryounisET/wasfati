@@ -1,26 +1,155 @@
 @import "tailwindcss";
 
+/* =============================================================================
+   Wasfati Design System (WDS) v1.0 — tokens ported from design-tokens.json.
+   Source of truth: Wasfati_Design_System_v1.0.docx in the handoff folder.
+   ========================================================================== */
+
+@theme {
+  /* --- Color: primary (teal) --- */
+  --color-primary-900: #00485a;
+  --color-primary-700: #00677d;
+  --color-primary-500: #217b8e;
+  --color-primary-300: #7fbfcf;
+  --color-primary-100: #bee3ec;
+  --color-primary-050: #e9f6fb;
+
+  /* --- Color: semantic --- */
+  --color-success-700: #1b6d32;
+  --color-success-500: #2e9e44;
+  --color-success-100: #b7f2b7;
+  --color-success-050: #eafbea;
+
+  --color-warning-700: #8a5300;
+  --color-warning-500: #c67c1b;
+  --color-warning-100: #f2d2a6;
+  --color-warning-050: #fff4e2;
+
+  --color-danger-700: #b3261e;
+  --color-danger-500: #d64545;
+  --color-danger-100: #ffdad6;
+  --color-danger-050: #fff1f0;
+
+  /* --- Color: ink (text/borders) --- */
+  --color-ink-900: #0f2a33;
+  --color-ink-700: #3e5a63;
+  --color-ink-500: #7c939a;
+  --color-ink-300: #c7d6da;
+  --color-ink-100: #e6eef0;
+
+  /* --- Color: surface --- */
+  --color-surface-app: #f6fafc;
+  --color-surface-card: #ffffff;
+  --color-surface-inverse: #0c1b22;
+
+  /* --- Color: category chips --- */
+  --color-category-rose: #f65296;
+  --color-category-orange: #feae63;
+  --color-category-sky: #64d0ea;
+  --color-category-violet: #a78bfa;
+  --color-category-pinkred: #ff3456;
+
+  /* --- Typography --- */
+  /* --font-ibm-plex-sans-arabic / --font-inter are supplied by next/font in layout.tsx */
+  --font-arabic: var(--font-ibm-plex-sans-arabic), ui-sans-serif, system-ui, sans-serif;
+  --font-latin: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-ibm-plex-sans-arabic), var(--font-inter), ui-sans-serif, system-ui,
+    sans-serif;
+
+  --text-display: 1.75rem;
+  --text-display--line-height: 2.25rem;
+  --text-h1: 1.375rem;
+  --text-h1--line-height: 1.75rem;
+  --text-h2: 1.125rem;
+  --text-h2--line-height: 1.5rem;
+  --text-h3: 1rem;
+  --text-h3--line-height: 1.375rem;
+  --text-bodyl: 0.9375rem;
+  --text-bodyl--line-height: 1.375rem;
+  --text-bodym: 0.875rem;
+  --text-bodym--line-height: 1.25rem;
+  --text-bodys: 0.8125rem;
+  --text-bodys--line-height: 1.125rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-button: 0.9375rem;
+  --text-button--line-height: 1.25rem;
+  --text-overline: 0.6875rem;
+  --text-overline--line-height: 0.875rem;
+
+  /* --- Radius --- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* --- Elevation (shadows) --- */
+  --shadow-e1: 0px 2px 8px rgba(15, 42, 51, 0.06);
+  --shadow-e2: 0px 6px 16px rgba(15, 42, 51, 0.1);
+  --shadow-e3: 0px 10px 28px rgba(15, 42, 51, 0.16);
+  --shadow-fab: 0px 4px 12px rgba(0, 103, 125, 0.35);
+
+  /* --- Layout --- */
+  --breakpoint-xs: 375px;
+}
+
+/* Motion tokens — plain custom properties, used via arbitrary Tailwind values
+   e.g. duration-[var(--duration-base)] ease-[var(--ease-standard)] */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --duration-fast: 120ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+  --min-touch-target: 48px;
+  --min-touch-target-senior: 56px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100%;
+  background: var(--color-surface-app);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+}
+
+/* Senior-friendly mode (toggled via [data-senior-mode="true"] on <html>) —
+   WDS: base body size 18px, min button height 56px, min contrast 7:1. */
+html[data-senior-mode="true"] {
+  font-size: 18px;
+}
+html[data-senior-mode="true"] button,
+html[data-senior-mode="true"] a[role="button"] {
+  min-height: var(--min-touch-target-senior);
+}
+
+::selection {
+  background: var(--color-primary-100);
+  color: var(--color-primary-900);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes sheet-enter {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-enter {
+  animation: sheet-enter var(--duration-base) var(--ease-decelerate);
 }

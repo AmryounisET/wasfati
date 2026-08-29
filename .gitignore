@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local dev convenience script (hardcodes this machine's node install path)
+/dev.cmd
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
