@@ -2,9 +2,10 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Loader2, RotateCcw, ChevronRight, AlertTriangle } from "lucide-react";
+import { FileText, Loader2, RotateCcw, Check, Plus, AlertTriangle } from "lucide-react";
 import { recognizeMedicationCandidates, type MedicationCandidate } from "@/lib/ocr";
 import { fileToDataUrl } from "@/lib/image-input";
+import { addToQuickCheckQueue } from "@/lib/quick-check-queue";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Screen } from "@/components/layout/Screen";
 import { Banner } from "@/components/ui/Banner";
@@ -13,7 +14,7 @@ import { Card } from "@/components/ui/Card";
 import { useTranslation } from "@/components/providers/LanguageProvider";
 import { interpolate } from "@/lib/i18n/get-dictionary";
 
-export default function PrescriptionUploadPage() {
+export default function QuickCheckUploadPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -23,6 +24,7 @@ export default function PrescriptionUploadPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [results, setResults] = useState<MedicationCandidate[] | null>(null);
+  const [added, setAdded] = useState<Set<string>>(new Set());
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -32,6 +34,7 @@ export default function PrescriptionUploadPage() {
     setFileError(null);
     setAnalyzeError(null);
     setResults(null);
+    setAdded(new Set());
 
     try {
       setPreview(await fileToDataUrl(file));
@@ -58,22 +61,17 @@ export default function PrescriptionUploadPage() {
     setFileError(null);
     setAnalyzeError(null);
     setResults(null);
+    setAdded(new Set());
   }
 
-  function pick(m: MedicationCandidate) {
-    const params = new URLSearchParams({
-      name: m.name,
-      generic: m.name.toLowerCase(),
-      dose: m.dose ?? "",
-      category: "other",
-      source: "prescription_ocr",
-    });
-    router.push(`/add-medication/manual?${params.toString()}`);
+  function addCandidate(m: MedicationCandidate) {
+    addToQuickCheckQueue(m.name);
+    setAdded((prev) => new Set(prev).add(m.name));
   }
 
   return (
     <Screen>
-      <PageHeader title={t.addMedicine.prescriptionOptionTitle} closeButton />
+      <PageHeader title={t.quickCheck.chooserUploadTitle} onBack={() => router.push("/quick-check")} />
 
       <input
         ref={fileInputRef}
@@ -137,24 +135,35 @@ export default function PrescriptionUploadPage() {
       {results && results.length > 0 && (
         <div className="mb-6">
           <p className="mb-1 text-h3 font-bold text-ink-900">
-            {interpolate(t.addMedicine.prescriptionResultsTitle, { count: results.length })}
+            {interpolate(t.quickCheck.uploadResultsTitle, { count: results.length })}
           </p>
-          <p className="mb-4 text-bodys text-ink-500">{t.addMedicine.prescriptionResultsSubtitle}</p>
+          <p className="mb-4 text-bodys text-ink-500">{t.quickCheck.uploadResultsSubtitle}</p>
           <div className="space-y-2">
-            {results.map((m, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => pick(m)}
-                className="flex w-full items-center justify-between gap-3 rounded-md border border-ink-100 bg-surface-card p-3 text-start hover:bg-primary-050"
-              >
-                <div>
-                  <p className="text-h3 font-bold text-ink-900">{m.name}</p>
-                  {m.dose && <p className="text-caption text-ink-500">{m.dose}</p>}
-                </div>
-                <ChevronRight size={18} className="shrink-0 text-ink-400 rtl:rotate-180" />
-              </button>
-            ))}
+            {results.map((m, i) => {
+              const isAdded = added.has(m.name);
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => addCandidate(m)}
+                  disabled={isAdded}
+                  className="flex w-full items-center justify-between gap-3 rounded-md border border-ink-100 bg-surface-card p-3 text-start hover:bg-primary-050 disabled:opacity-70"
+                >
+                  <div>
+                    <p className="text-h3 font-bold text-ink-900">{m.name}</p>
+                    {m.dose && <p className="text-caption text-ink-500">{m.dose}</p>}
+                  </div>
+                  {isAdded ? (
+                    <span className="flex shrink-0 items-center gap-1 text-caption font-semibold text-success-700">
+                      <Check size={16} />
+                      {t.quickCheck.uploadAddedLabel}
+                    </span>
+                  ) : (
+                    <Plus size={18} className="shrink-0 text-primary-700" />
+                  )}
+                </button>
+              );
+            })}
           </div>
           <button type="button" onClick={reset} className="mt-4 w-full text-center text-bodym text-primary-700">
             {t.addMedicine.prescriptionChooseDifferentFile}
@@ -173,13 +182,9 @@ export default function PrescriptionUploadPage() {
         </Card>
       )}
 
-      <button
-        type="button"
-        onClick={() => router.push("/add-medication/manual")}
-        className="w-full text-center text-bodym font-medium text-primary-700"
-      >
-        {t.addMedicine.prescriptionManualButton}
-      </button>
+      <Button onClick={() => router.push("/quick-check")} disabled={added.size === 0}>
+        {interpolate(t.quickCheck.uploadDoneButton, { count: added.size })}
+      </Button>
     </Screen>
   );
 }

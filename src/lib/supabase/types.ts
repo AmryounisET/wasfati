@@ -111,6 +111,15 @@ export type InteractionResult = {
   checked_at: string;
 }
 
+// Result of the ephemeral Quick Interaction Check — never persisted, so
+// this has no id/user_id/checked_at the way InteractionResult does.
+export type QuickCheckPair = {
+  severity: Severity;
+  summary: string;
+  patient_summary: string | null;
+  names: string[];
+};
+
 export type ChatMessage = {
   id: string;
   user_id: string;

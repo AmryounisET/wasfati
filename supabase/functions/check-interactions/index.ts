@@ -6,6 +6,17 @@
 // directly with SQL — it does not call an LLM, and it must never be
 // modified to let an AI model infer or invent a severity.
 //
+// Two entry points, same engine:
+//   1. { medication_ids: [...] } — checks the caller's own SAVED medications
+//      and persists every hit to interaction_results (the normal add-a-
+//      medicine flow).
+//   2. { trade_names: [...] } — the "Quick Interaction Check" flow: checks
+//      ad-hoc trade names (resolved via the drugs catalog) against the
+//      caller's saved medications AND each other, but never writes
+//      anything — no medications row, no interaction_results row. Same
+//      matching logic, same interactions table, deliberately no second
+//      implementation of the algorithm.
+//
 // Deploy: supabase functions deploy check-interactions
 // Invoke (from the client): supabase.functions.invoke('check-interactions', { body: { medication_ids: [...] } })
 
@@ -23,6 +34,23 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+type Admin = ReturnType<typeof createClient>;
+
+type IngredientEntry = {
+  id: string; // stable key for dedup — a medication id, or the queue index for ad-hoc names
+  name: string; // display label
+  ingredients: string[];
+  isQueue: boolean; // false for the caller's existing saved medications
+};
+
+type Hit = {
+  severity: unknown;
+  summary: unknown;
+  patient_summary: unknown;
+  interaction_id?: unknown;
+  names: string[];
 };
 
 // A medication's generic_name may itself be a compound formulation, e.g.
@@ -46,10 +74,7 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
 
-    const { medication_ids } = await req.json();
-    if (!Array.isArray(medication_ids) || medication_ids.length < 1) {
-      return json({ error: "medication_ids must be a non-empty array" }, 400);
-    }
+    const body = await req.json();
 
     // Service-role client: bypasses RLS deliberately, because this function
     // is the trusted server-side authority — but it re-derives the calling
@@ -62,109 +87,234 @@ serve(async (req) => {
     if (userErr || !userData.user) return json({ error: "Invalid session" }, 401);
     const userId = userData.user.id;
 
-    // 1. Load the requested medications (must belong to this user).
-    const { data: meds, error: medsErr } = await admin
-      .from("medications")
-      .select("id, generic_name")
-      .in("id", medication_ids)
-      .eq("user_id", userId);
-    if (medsErr) return json({ error: medsErr.message }, 500);
-    if (!meds || meds.length === 0) return json([], 200);
-
-    // Also pull the user's profile for single-substance checks
-    // (pregnancy/breastfeeding/elderly) — age/flags, never AI-derived.
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("age, is_pregnant, is_breastfeeding")
-      .eq("id", userId)
-      .single();
-
-    const results: unknown[] = [];
-    const persistedKeys = new Set<string>(); // dedupe (medication pair + rule) across ingredient matches
-
-    // 2. Pairwise drug-drug checks, at the ingredient level. Each medication
-    //    resolves to one or more ingredients (>1 only for a combination
-    //    product); every ingredient of every medication is checked against
-    //    every ingredient of every OTHER medication.
-    const medIngredients = meds.map((m) => ({
-      id: m.id,
-      name: m.generic_name,
-      ingredients: splitIngredients(m.generic_name),
-    }));
-    const allIngredients = [...new Set(medIngredients.flatMap((m) => m.ingredients))];
-
-    if (allIngredients.length > 0) {
-      const [{ data: byA }, { data: byB }] = await Promise.all([
-        admin.from("interactions").select("*").not("substance_b", "is", null).in("substance_a", allIngredients),
-        admin.from("interactions").select("*").not("substance_b", "is", null).in("substance_b", allIngredients),
-      ]);
-      const candidatesById = new Map<string, Record<string, unknown>>();
-      for (const hit of [...(byA ?? []), ...(byB ?? [])]) {
-        candidatesById.set(hit.id as string, hit);
-      }
-
-      for (const hit of candidatesById.values()) {
-        const subA = hit.substance_a as string;
-        const subB = hit.substance_b as string;
-        const medsWithA = medIngredients.filter((m) => m.ingredients.includes(subA));
-        const medsWithB = medIngredients.filter((m) => m.ingredients.includes(subB));
-
-        for (const medA of medsWithA) {
-          for (const medB of medsWithB) {
-            if (medA.id === medB.id) continue; // don't flag a combo product's own ingredients against each other
-            const pairKey = [medA.id, medB.id].sort().join("|") + `|${hit.id}`;
-            if (persistedKeys.has(pairKey)) continue;
-            persistedKeys.add(pairKey);
-            results.push(await persistResult(admin, userId, [medA.name, medB.name], hit));
-          }
-        }
-      }
+    if (Array.isArray(body.trade_names)) {
+      return await handleEphemeralCheck(admin, userId, body.trade_names);
     }
-
-    // 3. Single-substance checks against profile flags (pregnancy, elderly, etc),
-    //    also at the ingredient level.
-    const conditions: string[] = [];
-    if (profile?.is_pregnant) conditions.push("pregnancy");
-    if (profile?.is_breastfeeding) conditions.push("breastfeeding");
-    if ((profile?.age ?? 0) >= 65) conditions.push("elderly");
-
-    if (conditions.length > 0 && allIngredients.length > 0) {
-      const { data: hits } = await admin
-        .from("interactions")
-        .select("*")
-        .is("substance_b", null)
-        .in("substance_a", allIngredients)
-        .in("interaction_type", conditions);
-      for (const hit of hits ?? []) {
-        const medsWithIt = medIngredients.filter((m) => m.ingredients.includes(hit.substance_a as string));
-        for (const med of medsWithIt) {
-          results.push(await persistResult(admin, userId, [med.name], hit));
-        }
-      }
-    }
-
-    return json(results, 200);
+    return await handleSavedMedicationsCheck(admin, userId, body.medication_ids);
   } catch (e) {
     console.error(e);
     return json({ error: "Internal error" }, 500);
   }
 });
 
-async function persistResult(
-  admin: ReturnType<typeof createClient>,
-  userId: string,
-  medicationNames: string[],
-  hit: Record<string, unknown>,
-) {
+// ---------------------------------------------------------------------------
+// Entry point 1 — the caller's own saved medications. Persists every hit.
+// ---------------------------------------------------------------------------
+async function handleSavedMedicationsCheck(admin: Admin, userId: string, medicationIds: unknown) {
+  if (!Array.isArray(medicationIds) || medicationIds.length < 1) {
+    return json({ error: "medication_ids must be a non-empty array" }, 400);
+  }
+
+  const { data: meds, error: medsErr } = await admin
+    .from("medications")
+    .select("id, generic_name")
+    .in("id", medicationIds)
+    .eq("user_id", userId);
+  if (medsErr) return json({ error: medsErr.message }, 500);
+  if (!meds || meds.length === 0) return json([], 200);
+
+  const profile = await loadProfileFlags(admin, userId);
+  const medIngredients: IngredientEntry[] = meds.map((m) => ({
+    id: m.id,
+    name: m.generic_name,
+    ingredients: splitIngredients(m.generic_name),
+    isQueue: true, // every entry is "new" here — every pair should be checked
+  }));
+
+  const hits = findInteractionHits(admin, medIngredients, profile);
+  const results: unknown[] = [];
+  const persistedKeys = new Set<string>();
+  for (const hit of await hits) {
+    const key = [...hit.names].sort().join("|") + `|${hit.interaction_id}`;
+    if (persistedKeys.has(key)) continue;
+    persistedKeys.add(key);
+    results.push(await persistResult(admin, userId, hit.names, hit));
+  }
+  return json(results, 200);
+}
+
+// ---------------------------------------------------------------------------
+// Entry point 2 — Quick Interaction Check. Resolves each trade name via the
+// drugs catalog, checks it against the caller's saved medications and the
+// rest of the queue, and returns the result WITHOUT saving anything.
+// ---------------------------------------------------------------------------
+async function handleEphemeralCheck(admin: Admin, userId: string, tradeNamesInput: unknown) {
+  const tradeNames = (Array.isArray(tradeNamesInput) ? tradeNamesInput : [])
+    .filter((n): n is string => typeof n === "string" && n.trim().length > 0)
+    .map((n) => n.trim());
+  if (tradeNames.length === 0) {
+    return json({ error: "trade_names must be a non-empty array" }, 400);
+  }
+
+  const queueEntries: IngredientEntry[] = [];
+  const unresolved: string[] = [];
+
+  for (let i = 0; i < tradeNames.length; i++) {
+    const input = tradeNames[i];
+    const drug = await resolveDrug(admin, input);
+    if (!drug) {
+      unresolved.push(input);
+      continue;
+    }
+    queueEntries.push({
+      id: `queue-${i}`,
+      name: drug.trade_name,
+      ingredients: splitIngredients(drug.generic_name),
+      isQueue: true,
+    });
+  }
+
+  const { data: existingMeds } = await admin
+    .from("medications")
+    .select("name, generic_name")
+    .eq("user_id", userId)
+    .eq("archived", false);
+
+  const existingEntries: IngredientEntry[] = (existingMeds ?? []).map((m, i) => ({
+    id: `existing-${i}`,
+    name: m.name,
+    ingredients: splitIngredients(m.generic_name),
+    isQueue: false,
+  }));
+
+  const profile = await loadProfileFlags(admin, userId);
+  const allEntries = [...queueEntries, ...existingEntries];
+  const hits = await findInteractionHits(admin, allEntries, profile);
+
+  const pairs = [];
+  const seen = new Set<string>();
+  for (const hit of hits) {
+    const key = [...hit.names].sort().join("|") + `|${hit.interaction_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pairs.push({
+      severity: hit.severity,
+      summary: hit.summary,
+      patient_summary: hit.patient_summary,
+      names: hit.names,
+    });
+  }
+
+  return json({ pairs, unresolved }, 200);
+}
+
+/** Best-effort trade-name -> catalog row lookup: exact (case-insensitive)
+ * match first, falling back to a "contains" match so a slightly-off OCR
+ * read (extra dose text, a trailing word) still has a chance to resolve. */
+async function resolveDrug(admin: Admin, tradeName: string) {
+  const { data: exact } = await admin
+    .from("drugs")
+    .select("trade_name, generic_name")
+    .ilike("trade_name", tradeName)
+    .limit(1);
+  if (exact && exact.length > 0) return exact[0];
+
+  const { data: contains } = await admin
+    .from("drugs")
+    .select("trade_name, generic_name")
+    .ilike("trade_name", `%${tradeName}%`)
+    .limit(1);
+  return contains && contains.length > 0 ? contains[0] : null;
+}
+
+async function loadProfileFlags(admin: Admin, userId: string) {
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("age, is_pregnant, is_breastfeeding")
+    .eq("id", userId)
+    .single();
+  return profile;
+}
+
+/** Runs both the pairwise drug-drug pass and the single-substance
+ * profile-flag pass over a set of ingredient entries, returning every hit
+ * found. At least one side of a pairwise hit must be a "queue" entry
+ * (isQueue: true) — two non-queue entries are skipped, since for the saved-
+ * medications flow every entry is queue:true (a fresh full check), while
+ * for the ephemeral flow the caller's existing medications are already a
+ * known-safe pair with each other and don't need re-checking. */
+async function findInteractionHits(
+  admin: Admin,
+  entries: IngredientEntry[],
+  profile: { age: number | null; is_pregnant: boolean | null; is_breastfeeding: boolean | null } | null,
+): Promise<Hit[]> {
+  const hits: Hit[] = [];
+  const allIngredients = [...new Set(entries.flatMap((e) => e.ingredients))];
+  if (allIngredients.length === 0) return hits;
+
+  // 1. Pairwise drug-drug checks, at the ingredient level.
+  const [{ data: byA }, { data: byB }] = await Promise.all([
+    admin.from("interactions").select("*").not("substance_b", "is", null).in("substance_a", allIngredients),
+    admin.from("interactions").select("*").not("substance_b", "is", null).in("substance_b", allIngredients),
+  ]);
+  const candidatesById = new Map<string, Record<string, unknown>>();
+  for (const hit of [...(byA ?? []), ...(byB ?? [])]) {
+    candidatesById.set(hit.id as string, hit);
+  }
+
+  for (const hit of candidatesById.values()) {
+    const subA = hit.substance_a as string;
+    const subB = hit.substance_b as string;
+    const entriesWithA = entries.filter((e) => e.ingredients.includes(subA));
+    const entriesWithB = entries.filter((e) => e.ingredients.includes(subB));
+
+    for (const a of entriesWithA) {
+      for (const b of entriesWithB) {
+        if (a.id === b.id) continue; // don't flag a combo product's own ingredients against each other
+        if (!a.isQueue && !b.isQueue) continue; // both already-known — nothing new to report
+        hits.push({
+          severity: hit.severity,
+          summary: hit.summary,
+          patient_summary: hit.patient_summary ?? null,
+          interaction_id: hit.id,
+          names: [a.name, b.name],
+        });
+      }
+    }
+  }
+
+  // 2. Single-substance checks against profile flags (pregnancy, elderly,
+  //    etc), only for queue entries — a non-queue (already-saved) entry was
+  //    already checked against these when it was originally added.
+  const conditions: string[] = [];
+  if (profile?.is_pregnant) conditions.push("pregnancy");
+  if (profile?.is_breastfeeding) conditions.push("breastfeeding");
+  if ((profile?.age ?? 0) >= 65) conditions.push("elderly");
+
+  if (conditions.length > 0) {
+    const { data: profileHits } = await admin
+      .from("interactions")
+      .select("*")
+      .is("substance_b", null)
+      .in("substance_a", allIngredients)
+      .in("interaction_type", conditions);
+    for (const hit of profileHits ?? []) {
+      const entriesWithIt = entries.filter((e) => e.isQueue && e.ingredients.includes(hit.substance_a as string));
+      for (const entry of entriesWithIt) {
+        hits.push({
+          severity: hit.severity,
+          summary: hit.summary,
+          patient_summary: hit.patient_summary ?? null,
+          interaction_id: hit.id,
+          names: [entry.name],
+        });
+      }
+    }
+  }
+
+  return hits;
+}
+
+async function persistResult(admin: Admin, userId: string, medicationNames: string[], hit: Hit) {
   const { data, error } = await admin
     .from("interaction_results")
     .insert({
       user_id: userId,
       medication_names: medicationNames,
-      interaction_id: hit.id,
+      interaction_id: hit.interaction_id,
       severity: hit.severity,
       summary: hit.summary,
-      patient_summary: hit.patient_summary ?? null,
+      patient_summary: hit.patient_summary,
     })
     .select()
     .single();
