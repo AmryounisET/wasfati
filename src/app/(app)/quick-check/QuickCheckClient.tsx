@@ -59,6 +59,7 @@ export function QuickCheckClient() {
   const [step, setStep] = useState<"chooser" | "queue" | "result">("chooser");
   const [queue, setQueue] = useState<string[]>([]);
   const [input, setInput] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
   const [pairs, setPairs] = useState<QuickCheckPair[]>([]);
@@ -76,17 +77,42 @@ export function QuickCheckClient() {
     }
   }, []);
 
-  function addTyped() {
-    const trimmed = input.trim();
+  // Live trade-name suggestions from the drug catalog as the user types —
+  // picking one avoids a typo the resolver couldn't recover from later.
+  useEffect(() => {
+    const term = input.trim();
+    if (term.length < 2) return;
+    const handle = setTimeout(async () => {
+      const { data } = await supabase
+        .from("drugs")
+        .select("trade_name")
+        .ilike("trade_name", `%${term}%`)
+        .order("trade_name", { ascending: true })
+        .limit(8);
+      setSuggestions([...new Set((data ?? []).map((d) => d.trade_name))]);
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [input, supabase]);
+
+  function addName(name: string) {
+    const trimmed = name.trim();
     if (!trimmed) return;
-    if (queue.some((q) => q.toLowerCase() === trimmed.toLowerCase())) {
-      setInput("");
-      return;
-    }
+    if (queue.some((q) => q.toLowerCase() === trimmed.toLowerCase())) return;
     const next = [...queue, trimmed];
     setQueue(next);
     setQuickCheckQueue(next);
+  }
+
+  function addTyped() {
+    addName(input);
     setInput("");
+    setSuggestions([]);
+  }
+
+  function selectSuggestion(name: string) {
+    addName(name);
+    setInput("");
+    setSuggestions([]);
   }
 
   function onInputKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -197,13 +223,31 @@ export function QuickCheckClient() {
           <PageHeader title={t.quickCheck.queueTitle} onBack={() => router.push("/home")} />
           <p className="mb-5 text-bodys text-ink-500">{t.quickCheck.queueSubtitle}</p>
 
-          <TextField
-            label={t.quickCheck.queueInputLabel}
-            placeholder={t.quickCheck.queueInputPlaceholder}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onInputKeyDown}
-          />
+          <div className="relative">
+            <TextField
+              label={t.quickCheck.queueInputLabel}
+              placeholder={t.quickCheck.queueInputPlaceholder}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onInputKeyDown}
+              autoComplete="off"
+            />
+            {input.trim().length >= 2 && suggestions.length > 0 && (
+              <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-md border border-ink-100 bg-surface-card shadow-e2">
+                {suggestions.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectSuggestion(name)}
+                    className="block w-full px-4 py-2.5 text-start text-bodym text-ink-900 hover:bg-primary-050"
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <Button
             size="md"
             variant="secondary"
