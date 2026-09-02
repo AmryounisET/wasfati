@@ -36,7 +36,7 @@ export default async function HomePage() {
     { data: linkedOwners },
     { data: careLinks },
   ] = await Promise.all([
-    supabase.from("profiles").select("full_name, user_type").eq("id", user.id).single(),
+    supabase.from("profiles").select("full_name").eq("id", user.id).single(),
     supabase
       .from("medications")
       .select("*")
@@ -133,22 +133,20 @@ export default async function HomePage() {
       </header>
 
       <div className="mb-4 space-y-3">
-        {profile?.user_type === "patient" && (
-          <Link href="/quick-check">
-            <Card className="flex items-center gap-3 border-primary-100 bg-primary-050">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary-100 text-primary-900">
-                <Sparkles size={22} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-h3 font-bold text-ink-900">{t.quickCheck.homeCardTitle}</p>
-                <p className="text-bodys text-ink-700">{t.quickCheck.homeCardSubtitle}</p>
-              </div>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-primary-500 bg-white text-primary-700">
-                <Plus size={18} />
-              </span>
-            </Card>
-          </Link>
-        )}
+        <Link href="/quick-check">
+          <Card className="flex items-center gap-3 border-primary-100 bg-primary-050">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary-100 text-primary-900">
+              <Sparkles size={22} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-h3 font-bold text-ink-900">{t.quickCheck.homeCardTitle}</p>
+              <p className="text-bodys text-ink-700">{t.quickCheck.homeCardSubtitle}</p>
+            </div>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-primary-500 bg-white text-primary-700">
+              <Plus size={18} />
+            </span>
+          </Card>
+        </Link>
 
         {(incomingInvites ?? []).length > 0 && (
           <Link href="/account/care-circle">

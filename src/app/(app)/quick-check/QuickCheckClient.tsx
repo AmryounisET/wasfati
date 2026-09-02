@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import type { QuickCheckPair, Severity } from "@/lib/supabase/types";
+import type { QuickCheckPair, Severity, UserType } from "@/lib/supabase/types";
 
 const severityVariant: Record<Severity, "danger" | "warning" | "primary" | "neutral"> = {
   high: "danger",
@@ -51,7 +51,7 @@ function severityTitle(s: Severity, t: Dictionary): string {
   return t.quickCheck.pairTitleMinor;
 }
 
-export function QuickCheckClient() {
+export function QuickCheckClient({ userType }: { userType: UserType }) {
   const router = useRouter();
   const supabase = createClient();
   const { t } = useTranslation();
@@ -335,7 +335,7 @@ export function QuickCheckClient() {
                     {p.names.join(" + ")}
                   </p>
                   <p className={cn("ms-7 text-bodys", severityTextClass[p.severity])}>
-                    {getDisplaySummary(p, "patient", t)}
+                    {getDisplaySummary(p, userType, t)}
                   </p>
                 </div>
               ))}

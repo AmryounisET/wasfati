@@ -1,7 +1,14 @@
-import { requirePatient } from "@/lib/supabase/patient";
+import { createClient } from "@/lib/supabase/server";
 import { QuickCheckClient } from "./QuickCheckClient";
 
 export default async function QuickCheckPage() {
-  await requirePatient();
-  return <QuickCheckClient />;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profile } = await supabase.from("profiles").select("user_type").eq("id", user.id).single();
+
+  return <QuickCheckClient userType={profile?.user_type ?? "patient"} />;
 }
