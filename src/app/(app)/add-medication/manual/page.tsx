@@ -12,6 +12,7 @@ import { ChoiceChips } from "@/components/ui/ChoiceChips";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Sheet } from "@/components/ui/Sheet";
+import { interpolate } from "@/lib/i18n/get-dictionary";
 import type { InteractionResult, MedicationSource, Severity } from "@/lib/supabase/types";
 
 const VALID_SOURCES: MedicationSource[] = ["manual", "search", "scan", "prescription_ocr"];
@@ -27,8 +28,20 @@ const severityVariant: Record<Severity, "danger" | "warning" | "primary" | "neut
 // src/lib/dose-schedule.ts matches on these exact keywords to compute
 // missed-dose state, and existing rows already use them. Only the chip
 // LABEL shown to the user is translated.
-const FREQUENCY_VALUES = ["يومياً", "مرتين يومياً", "ثلاث مرات", "عند الحاجة"] as const;
+const FREQUENCY_VALUES = ["يومياً", "مرتين يومياً", "ثلاث مرات", "أربع مرات", "عند الحاجة"] as const;
 const TIME_OF_DAY_VALUES = ["صباحاً", "ظهراً", "مساء", "قبل النوم"] as const;
+
+// How many times-of-day the patient must pick for each frequency — "twice
+// daily" needs exactly 2 picks, "three times" needs 3, and so on, so the
+// selected slots always match what was actually prescribed. "As needed"
+// has no fixed daily count, so it stays a single pick like "once daily".
+const FREQUENCY_INTAKE_COUNT: Record<string, number> = {
+  "يومياً": 1,
+  "مرتين يومياً": 2,
+  "ثلاث مرات": 3,
+  "أربع مرات": 4,
+  "عند الحاجة": 1,
+};
 
 const unitOptions = ["mg", "ml", "g", "mcg", "IU"];
 
@@ -50,7 +63,8 @@ function ManualEntryForm() {
     { value: FREQUENCY_VALUES[0], label: t.addMedicine.freqDaily },
     { value: FREQUENCY_VALUES[1], label: t.addMedicine.freqTwiceDaily },
     { value: FREQUENCY_VALUES[2], label: t.addMedicine.freqThreeTimes },
-    { value: FREQUENCY_VALUES[3], label: t.addMedicine.freqAsNeeded },
+    { value: FREQUENCY_VALUES[3], label: t.addMedicine.freqFourTimes },
+    { value: FREQUENCY_VALUES[4], label: t.addMedicine.freqAsNeeded },
   ];
   const timeOfDayOptions = [
     { value: TIME_OF_DAY_VALUES[0], label: t.addMedicine.timeMorning },
@@ -66,8 +80,27 @@ function ManualEntryForm() {
   const [unit, setUnit] = useState(prefillDoseMatch?.[2] ?? "mg");
   const [dose, setDose] = useState(prefillDoseMatch?.[1] ?? "");
   const [category] = useState(searchParams.get("category") ?? "other");
-  const [frequency, setFrequency] = useState<string>(FREQUENCY_VALUES[0]);
-  const [timeOfDay, setTimeOfDay] = useState<string>(TIME_OF_DAY_VALUES[0]);
+  const [frequency, setFrequencyState] = useState<string>(FREQUENCY_VALUES[0]);
+  const [timeOfDay, setTimeOfDay] = useState<string[]>([TIME_OF_DAY_VALUES[0]]);
+  const requiredTimeCount = FREQUENCY_INTAKE_COUNT[frequency] ?? 1;
+  const intervalHours = requiredTimeCount > 1 ? Math.round(24 / requiredTimeCount) : null;
+
+  function handleFrequencyChange(next: string) {
+    setFrequencyState(next);
+    // The required number of picks changes with frequency, so a stale
+    // selection from a different frequency would be the wrong count —
+    // clearing it forces a fresh, correctly-sized pick.
+    setTimeOfDay([]);
+  }
+
+  function toggleTimeOfDay(v: string) {
+    setTimeOfDay((prev) => {
+      if (prev.includes(v)) return prev.filter((x) => x !== v);
+      if (requiredTimeCount === 1) return [v];
+      if (prev.length >= requiredTimeCount) return prev;
+      return [...prev, v];
+    });
+  }
   const [duration, setDuration] = useState("");
   const [notes, setNotes] = useState(searchParams.get("notes") ?? "");
   const prefilledSourceParam = searchParams.get("source");
@@ -80,7 +113,7 @@ function ManualEntryForm() {
   const [pendingMedId, setPendingMedId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
-  const canSubmit = name.trim().length > 1 && dose.trim().length > 0;
+  const canSubmit = name.trim().length > 1 && dose.trim().length > 0 && timeOfDay.length === requiredTimeCount;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -97,7 +130,12 @@ function ManualEntryForm() {
       return;
     }
 
-    const frequencyText = [frequency, timeOfDay, notes.trim() ? `• ${notes.trim()}` : null]
+    // Keep the selected times in the same order they occur in the day
+    // (not selection order) — src/lib/dose-schedule.ts's missed-dose check
+    // matches the first of these keywords it finds, which only lines up
+    // with "the earliest dose of the day" if they're stored chronologically.
+    const orderedTimeOfDay = TIME_OF_DAY_VALUES.filter((v) => timeOfDay.includes(v));
+    const frequencyText = [frequency, orderedTimeOfDay.join("، "), notes.trim() ? `• ${notes.trim()}` : null]
       .filter(Boolean)
       .join(" • ");
 
@@ -125,16 +163,16 @@ function ManualEntryForm() {
       return;
     }
 
-    const { data: activeMeds } = await supabase
-      .from("medications")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("archived", false);
-
     try {
+      // Only the newly-added medicine is sent — the Edge Function checks it
+      // against the rest of the active list itself, without re-flagging
+      // pairs that don't involve it (see check-interactions for why: doing
+      // a full-list check on every add re-inserts fresh log rows for
+      // already-known pairs and makes admin-cleared alerts look like they
+      // silently come back).
       const { data: results, error: fnError } = await supabase.functions.invoke(
         "check-interactions",
-        { body: { medication_ids: (activeMeds ?? [{ id: newMed.id }]).map((m) => m.id) } },
+        { body: { medication_ids: [newMed.id] } },
       );
       if (fnError) throw fnError;
 
@@ -222,7 +260,7 @@ function ManualEntryForm() {
             <span className="text-bodym font-semibold text-ink-900">{t.addMedicine.frequencyLabel}</span>
             <span className="text-caption text-ink-500">{t.addMedicine.frequencyLabelEn}</span>
           </div>
-          <ChoiceChips options={frequencyOptions} value={frequency} onChange={setFrequency} />
+          <ChoiceChips options={frequencyOptions} value={frequency} onChange={handleFrequencyChange} />
         </div>
 
         <div>
@@ -230,7 +268,17 @@ function ManualEntryForm() {
             <span className="text-bodym font-semibold text-ink-900">{t.addMedicine.timeOfDayLabel}</span>
             <span className="text-caption text-ink-500">{t.addMedicine.timeOfDayLabelEn}</span>
           </div>
-          <ChoiceChips options={timeOfDayOptions} value={timeOfDay} onChange={setTimeOfDay} />
+          {requiredTimeCount > 1 && (
+            <p className="mb-2 text-caption text-primary-700">
+              {interpolate(t.addMedicine.timeOfDayIntervalHint, { hours: intervalHours ?? "" })}
+              {" — "}
+              {interpolate(t.addMedicine.timeOfDaySelectedCount, {
+                selected: timeOfDay.length,
+                required: requiredTimeCount,
+              })}
+            </p>
+          )}
+          <ChoiceChips options={timeOfDayOptions} value={timeOfDay} onChange={toggleTimeOfDay} />
         </div>
 
         <TextField

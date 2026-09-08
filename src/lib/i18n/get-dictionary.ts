@@ -12,7 +12,7 @@ import zh from "./dictionaries/zh";
 const dictionaries: Record<Locale, Dictionary> = { ar, en, fr, it, es, tr, ru, zh };
 
 export function getDictionary(locale: Locale): Dictionary {
-  return dictionaries[locale] ?? dictionaries.ar;
+  return dictionaries[locale] ?? dictionaries.en;
 }
 
 export type { Dictionary };

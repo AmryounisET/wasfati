@@ -105,30 +105,86 @@ async function handleSavedMedicationsCheck(admin: Admin, userId: string, medicat
     return json({ error: "medication_ids must be a non-empty array" }, 400);
   }
 
-  const { data: meds, error: medsErr } = await admin
+  const { data: requestedMeds, error: medsErr } = await admin
     .from("medications")
     .select("id, generic_name")
     .in("id", medicationIds)
     .eq("user_id", userId);
   if (medsErr) return json({ error: medsErr.message }, 500);
-  if (!meds || meds.length === 0) return json([], 200);
+  if (!requestedMeds || requestedMeds.length === 0) return json([], 200);
+
+  // Only the medications actually being (re)checked are "queue" entries —
+  // the rest of the caller's active list is included as context (so a new
+  // medicine still gets checked against everything already on the list)
+  // but not re-evaluated against itself. Without this, adding any single
+  // medicine re-flags EVERY pair in the whole list, which floods the log
+  // with fresh rows for pairs that haven't changed at all.
+  const requestedIds = new Set(requestedMeds.map((m) => m.id));
+  const { data: allActiveMeds } = await admin
+    .from("medications")
+    .select("id, generic_name")
+    .eq("user_id", userId)
+    .eq("archived", false);
+  const otherMeds = (allActiveMeds ?? []).filter((m) => !requestedIds.has(m.id));
 
   const profile = await loadProfileFlags(admin, userId);
-  const medIngredients: IngredientEntry[] = meds.map((m) => ({
-    id: m.id,
-    name: m.generic_name,
-    ingredients: splitIngredients(m.generic_name),
-    isQueue: true, // every entry is "new" here — every pair should be checked
-  }));
+  const entries: IngredientEntry[] = [
+    ...requestedMeds.map((m) => ({
+      id: m.id,
+      name: m.generic_name,
+      ingredients: splitIngredients(m.generic_name),
+      isQueue: true,
+    })),
+    ...otherMeds.map((m) => ({
+      id: m.id,
+      name: m.generic_name,
+      ingredients: splitIngredients(m.generic_name),
+      isQueue: false,
+    })),
+  ];
 
-  const hits = findInteractionHits(admin, medIngredients, profile);
+  const hits = await findInteractionHits(admin, entries, profile);
+
+  // Don't insert a fresh duplicate of an alert that's already sitting in
+  // the log for this exact pair — otherwise re-checking (e.g. rechecking
+  // the whole list from the history page) keeps resurrecting an alert an
+  // admin already cleared, even though nothing about the pair changed.
+  // Still surface it to the user in this add flow either way — just point
+  // at the existing row instead of minting a new one.
+  const { data: existingResults } = await admin
+    .from("interaction_results")
+    .select("id, medication_names, interaction_id")
+    .eq("user_id", userId);
+  const existingByKey = new Map(
+    (existingResults ?? []).map((r) => [
+      [...r.medication_names].sort().join("|") + `|${r.interaction_id}`,
+      r.id as string,
+    ]),
+  );
+
   const results: unknown[] = [];
-  const persistedKeys = new Set<string>();
-  for (const hit of await hits) {
+  const seen = new Set<string>();
+  for (const hit of hits) {
     const key = [...hit.names].sort().join("|") + `|${hit.interaction_id}`;
-    if (persistedKeys.has(key)) continue;
-    persistedKeys.add(key);
-    results.push(await persistResult(admin, userId, hit.names, hit));
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const existingId = existingByKey.get(key);
+    if (existingId) {
+      results.push({
+        id: existingId,
+        user_id: userId,
+        medication_names: hit.names,
+        interaction_id: hit.interaction_id ?? null,
+        severity: hit.severity,
+        summary: hit.summary,
+        patient_summary: hit.patient_summary,
+        ai_explanation: null,
+        checked_at: new Date().toISOString(),
+      });
+    } else {
+      results.push(await persistResult(admin, userId, hit.names, hit));
+    }
   }
   return json(results, 200);
 }
@@ -273,7 +329,15 @@ async function findInteractionHits(
     }
   }
 
-  // 2. Single-substance checks against profile flags (pregnancy, elderly,
+  // 2. Duplicate therapy — two different products sharing an active
+  //    ingredient (e.g. two different acetaminophen brands) is a common,
+  //    dangerous real-world mistake that isn't a specific named-pair rule
+  //    in the interactions table, so it's computed directly rather than
+  //    looked up. Always high severity — this is a structural risk, not a
+  //    graded one.
+  hits.push(...findDuplicateTherapyHits(entries));
+
+  // 3. Single-substance checks against profile flags (pregnancy, elderly,
   //    etc), only for queue entries — a non-queue (already-saved) entry was
   //    already checked against these when it was originally added.
   const conditions: string[] = [];
@@ -302,6 +366,39 @@ async function findInteractionHits(
     }
   }
 
+  return hits;
+}
+
+/** Two different entries sharing at least one active ingredient — same
+ * generic composition, whether the two names match exactly (e.g. two
+ * "aspirin" entries) or only partially overlap (e.g. a combo product
+ * containing acetaminophen alongside a separate acetaminophen product).
+ * This needs no interactions-table row: it's a structural duplicate-
+ * therapy risk, not a specific named-pair rule, so it's synthesized
+ * in-code and always reported as high severity. */
+function findDuplicateTherapyHits(entries: IngredientEntry[]): Hit[] {
+  const hits: Hit[] = [];
+  const seenPairs = new Set<string>();
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const a = entries[i];
+      const b = entries[j];
+      if (!a.isQueue && !b.isQueue) continue; // both already-known — nothing new to report
+      const shared = a.ingredients.find((ing) => b.ingredients.includes(ing));
+      if (!shared) continue;
+      const pairKey = [a.id, b.id].sort().join("|");
+      if (seenPairs.has(pairKey)) continue;
+      seenPairs.add(pairKey);
+      hits.push({
+        severity: "high",
+        summary: `Duplicate therapy — ${a.name} and ${b.name} both contain ${shared}. Taking both increases the risk of an accidental overdose; do not continue both without your doctor's or pharmacist's advice.`,
+        patient_summary:
+          "You're taking two medicines with the same active ingredient. This can lead to an accidental overdose — talk to your doctor or pharmacist before continuing both.",
+        interaction_id: null,
+        names: [a.name, b.name],
+      });
+    }
+  }
   return hits;
 }
 
