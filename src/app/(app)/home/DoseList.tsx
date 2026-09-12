@@ -57,12 +57,12 @@ export function DoseList({
       {medications.map((m) => {
         const done = confirmed.has(m.id);
         return (
-          <Card key={m.id} className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
+          <Card key={m.id} className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-[10rem] flex-1 items-center gap-3">
               <IconChip category={m.category} />
               <div className="min-w-0">
                 <p className="text-h3 font-bold text-ink-900">{m.name}</p>
-                <p className="break-words text-caption text-ink-500">
+                <p className="text-caption text-ink-500">
                   {m.generic_name} {m.dose}
                 </p>
                 <p className="text-caption text-ink-500">{m.frequency}</p>
