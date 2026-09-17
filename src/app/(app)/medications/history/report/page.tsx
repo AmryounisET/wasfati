@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { PrintButton } from "./PrintButton";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { getDictionary, interpolate } from "@/lib/i18n/get-dictionary";
@@ -8,9 +8,7 @@ import { getDisplaySummary } from "@/lib/interaction-display";
 
 export default async function MedicationReportPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const locale = await getLocale();

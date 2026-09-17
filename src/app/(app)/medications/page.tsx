@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Plus, History } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { Screen } from "@/components/layout/Screen";
 import { getLocale } from "@/lib/i18n/get-locale";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -9,9 +9,7 @@ import type { Medication } from "@/lib/supabase/types";
 
 export default async function MedicationsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const locale = await getLocale();

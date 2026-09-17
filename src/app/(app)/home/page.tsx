@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Bell, ShieldCheck, Users, ShieldAlert, Sparkles, Plus } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { Screen } from "@/components/layout/Screen";
 import { Banner } from "@/components/ui/Banner";
 import { Card } from "@/components/ui/Card";
@@ -15,9 +15,7 @@ import type { Database } from "@/lib/supabase/types";
 
 export default async function HomePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const locale = await getLocale();

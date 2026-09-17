@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Screen } from "@/components/layout/Screen";
 import { getLocale } from "@/lib/i18n/get-locale";
@@ -7,9 +7,7 @@ import { HealthProfileForm } from "./HealthProfileForm";
 
 export default async function HealthProfilePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const locale = await getLocale();

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/supabase/types";
@@ -29,3 +30,18 @@ export async function createClient() {
     },
   );
 }
+
+// supabase.auth.getUser() re-validates the JWT against Supabase's Auth
+// server on every call — a real network round-trip, not a local cookie
+// decode. A single request often renders a layout and a page (and
+// sometimes nested components) that each want the current user, so without
+// memoization that's 2-3 round-trips before any real data query even
+// starts. `cache()` makes every call within one request share the same
+// in-flight/resolved call.
+export const getUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});

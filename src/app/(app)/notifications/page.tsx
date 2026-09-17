@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, BellRing, ShieldAlert } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Screen } from "@/components/layout/Screen";
 import { Card } from "@/components/ui/Card";
@@ -12,9 +12,7 @@ import { getDisplaySummary } from "@/lib/interaction-display";
 
 export default async function NotificationsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const locale = await getLocale();

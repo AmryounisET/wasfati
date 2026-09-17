@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { Banner } from "@/components/ui/Banner";
 import { ChatWindow } from "./ChatWindow";
 import { getLocale } from "@/lib/i18n/get-locale";
@@ -6,9 +6,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function AssistantPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const locale = await getLocale();

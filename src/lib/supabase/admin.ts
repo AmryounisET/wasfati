@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import type { AdminRole } from "@/lib/supabase/types";
 
 /** Server-side gate for every /admin page: confirms the caller is signed in
@@ -8,9 +8,7 @@ import type { AdminRole } from "@/lib/supabase/types";
  * never the sole line of defense. */
 export async function requireAdmin() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/login");
 
   const { data: adminRow } = await supabase

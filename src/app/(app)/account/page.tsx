@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { UserRound, HeartPulse, Users, Sun, Globe, Lock, FileText, History, Fingerprint, ChevronLeft, ChevronRight } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { Screen } from "@/components/layout/Screen";
 import { getLocale } from "@/lib/i18n/get-locale";
@@ -11,9 +11,7 @@ import { SignOutButton } from "./SignOutButton";
 
 export default async function AccountPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
   const locale = await getLocale();
