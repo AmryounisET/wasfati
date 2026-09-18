@@ -51,7 +51,52 @@ type Hit = {
   patient_summary: unknown;
   interaction_id?: unknown;
   names: string[];
+  // The ingredient pair (or shared ingredient) that produced this hit, e.g.
+  // "ibuprofen + irbesartan". After mergeHitsByProductPair it lists every
+  // pair behind the severity that is reported for the product pair.
+  ingredients?: string[];
 };
+
+const SEVERITY_RANK: Record<string, number> = { high: 3, moderate: 2, low: 1, unverified: 0 };
+const severityRank = (s: unknown) => SEVERITY_RANK[String(s)] ?? 0;
+
+/** Rules are authored (and stored) per ingredient pair, so two products with
+ * several ingredients each can produce several hits — one per matching
+ * ingredient pair — and each rule's a/b order is fixed alphabetically, so the
+ * same two products can appear in either order. The reader thinks in
+ * products, so collapse to ONE result per product pair:
+ *   - the worst severity wins;
+ *   - "unverified" (no rule matched that ingredient pair) is dropped when
+ *     another ingredient pair of the same products has a real rule, since it
+ *     says nothing the real rule doesn't already cover;
+ *   - ties break deterministically (ingredient-pair label) so re-checking the
+ *     same products always yields the same rule/interaction_id. */
+function mergeHitsByProductPair(hits: Hit[]): Hit[] {
+  const groups = new Map<string, Hit[]>();
+  for (const hit of hits) {
+    const key = [...hit.names].sort().join("|");
+    const group = groups.get(key);
+    if (group) group.push(hit);
+    else groups.set(key, [hit]);
+  }
+
+  const label = (h: Hit) => h.ingredients?.[0] ?? "";
+  const merged: Hit[] = [];
+  for (const group of groups.values()) {
+    const ruleBased = group.filter((h) => severityRank(h.severity) > 0);
+    const candidates = ruleBased.length > 0 ? ruleBased : group;
+    candidates.sort(
+      (a, b) => severityRank(b.severity) - severityRank(a.severity) || label(a).localeCompare(label(b)),
+    );
+    const top = candidates[0];
+    const topRank = severityRank(top.severity);
+    const ingredients = [
+      ...new Set(candidates.filter((h) => severityRank(h.severity) === topRank).map(label).filter(Boolean)),
+    ];
+    merged.push({ ...top, ingredients });
+  }
+  return merged;
+}
 
 // A medication's generic_name may itself be a compound formulation, e.g.
 // "quinapril+hydrochlorothiazide" — interaction rules are authored at the
@@ -162,12 +207,11 @@ async function handleSavedMedicationsCheck(admin: Admin, userId: string, medicat
     ]),
   );
 
+  // One result per product pair (see mergeHitsByProductPair) — `ingredients`
+  // rides along on the response only; it isn't a column on interaction_results.
   const results: unknown[] = [];
-  const seen = new Set<string>();
-  for (const hit of hits) {
+  for (const hit of mergeHitsByProductPair(hits)) {
     const key = [...hit.names].sort().join("|") + `|${hit.interaction_id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
 
     const existingId = existingByKey.get(key);
     if (existingId) {
@@ -181,9 +225,11 @@ async function handleSavedMedicationsCheck(admin: Admin, userId: string, medicat
         patient_summary: hit.patient_summary,
         ai_explanation: null,
         checked_at: new Date().toISOString(),
+        ingredients: hit.ingredients ?? [],
       });
     } else {
-      results.push(await persistResult(admin, userId, hit.names, hit));
+      const row = await persistResult(admin, userId, hit.names, hit);
+      results.push({ ...row, ingredients: hit.ingredients ?? [] });
     }
   }
   return json(results, 200);
@@ -237,19 +283,13 @@ async function handleEphemeralCheck(admin: Admin, userId: string, tradeNamesInpu
   const allEntries = [...queueEntries, ...existingEntries];
   const hits = await findInteractionHits(admin, allEntries, profile);
 
-  const pairs = [];
-  const seen = new Set<string>();
-  for (const hit of hits) {
-    const key = [...hit.names].sort().join("|") + `|${hit.interaction_id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    pairs.push({
-      severity: hit.severity,
-      summary: hit.summary,
-      patient_summary: hit.patient_summary,
-      names: hit.names,
-    });
-  }
+  const pairs = mergeHitsByProductPair(hits).map((hit) => ({
+    severity: hit.severity,
+    summary: hit.summary,
+    patient_summary: hit.patient_summary,
+    names: hit.names,
+    ingredients: hit.ingredients ?? [],
+  }));
 
   return json({ pairs, unresolved }, 200);
 }
@@ -324,6 +364,7 @@ async function findInteractionHits(
           patient_summary: hit.patient_summary ?? null,
           interaction_id: hit.id,
           names: [a.name, b.name],
+          ingredients: [`${subA} + ${subB}`],
         });
       }
     }
@@ -396,6 +437,7 @@ function findDuplicateTherapyHits(entries: IngredientEntry[]): Hit[] {
           "You're taking two medicines with the same active ingredient. This can lead to an accidental overdose — talk to your doctor or pharmacist before continuing both.",
         interaction_id: null,
         names: [a.name, b.name],
+        ingredients: [shared],
       });
     }
   }

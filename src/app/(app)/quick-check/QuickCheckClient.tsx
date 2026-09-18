@@ -334,6 +334,11 @@ export function QuickCheckClient({ userType }: { userType: UserType }) {
                   <p className={cn("ms-7 mb-1 text-bodym font-semibold", severityTextClass[p.severity])}>
                     {p.names.join(" + ")}
                   </p>
+                  {p.ingredients && p.ingredients.length > 0 && (
+                    <p dir="ltr" className={cn("ms-7 mb-1 text-caption opacity-80", severityTextClass[p.severity])}>
+                      {p.ingredients.join(" · ")}
+                    </p>
+                  )}
                   <p className={cn("ms-7 text-bodys", severityTextClass[p.severity])}>
                     {getDisplaySummary(p, userType, t)}
                   </p>

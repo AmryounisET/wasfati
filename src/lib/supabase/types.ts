@@ -111,6 +111,10 @@ export type InteractionResult = {
   checked_at: string;
 }
 
+// check-interactions returns the persisted row plus the ingredient pair(s)
+// that triggered it — `ingredients` is response-only, not a column.
+export type InteractionResultWithIngredients = InteractionResult & { ingredients?: string[] };
+
 // Result of the ephemeral Quick Interaction Check — never persisted, so
 // this has no id/user_id/checked_at the way InteractionResult does.
 export type QuickCheckPair = {
@@ -118,6 +122,8 @@ export type QuickCheckPair = {
   summary: string;
   patient_summary: string | null;
   names: string[];
+  // Ingredient pair(s) behind the reported severity, e.g. "ibuprofen + irbesartan".
+  ingredients?: string[];
 };
 
 export type ChatMessage = {

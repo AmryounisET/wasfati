@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Sheet } from "@/components/ui/Sheet";
 import { interpolate } from "@/lib/i18n/get-dictionary";
-import type { InteractionResult, MedicationSource, Severity } from "@/lib/supabase/types";
+import type { InteractionResultWithIngredients, MedicationSource, Severity } from "@/lib/supabase/types";
 
 const VALID_SOURCES: MedicationSource[] = ["manual", "search", "scan", "prescription_ocr"];
 
@@ -109,7 +109,7 @@ function ManualEntryForm() {
     : "manual";
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pendingResults, setPendingResults] = useState<InteractionResult[] | null>(null);
+  const [pendingResults, setPendingResults] = useState<InteractionResultWithIngredients[] | null>(null);
   const [pendingMedId, setPendingMedId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
@@ -176,7 +176,7 @@ function ManualEntryForm() {
       );
       if (fnError) throw fnError;
 
-      const found = (results as InteractionResult[] | null) ?? [];
+      const found = (results as InteractionResultWithIngredients[] | null) ?? [];
       if (found.length > 0) {
         // Hold off on confirming the add — the medicine is already saved
         // (the check needs a real row to check against), but the user
@@ -324,6 +324,9 @@ function ManualEntryForm() {
                     <p className="text-bodym font-bold text-ink-900">{r.medication_names.join(" + ")}</p>
                     <Badge variant={severityVariant[r.severity]}>{t.severity[r.severity]}</Badge>
                   </div>
+                  {r.ingredients && r.ingredients.length > 0 && (
+                    <p dir="ltr" className="mb-1 text-caption text-ink-500">{r.ingredients.join(" · ")}</p>
+                  )}
                   <p className="text-bodys text-ink-700">{r.summary}</p>
                 </div>
               ))}
