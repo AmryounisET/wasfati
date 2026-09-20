@@ -51,6 +51,10 @@ function severityTitle(s: Severity, t: Dictionary): string {
   return t.quickCheck.pairTitleMinor;
 }
 
+// A quick check compares the queued medicines with each other, so one on its own
+// has nothing to be compared with.
+const MIN_QUEUE = 2;
+
 export function QuickCheckClient({ userType }: { userType: UserType }) {
   const router = useRouter();
   const supabase = createClient();
@@ -129,7 +133,7 @@ export function QuickCheckClient({ userType }: { userType: UserType }) {
   }
 
   async function runCheck() {
-    if (queue.length === 0) return;
+    if (queue.length < MIN_QUEUE) return;
     setChecking(true);
     setCheckError(null);
     try {
@@ -286,9 +290,13 @@ export function QuickCheckClient({ userType }: { userType: UserType }) {
             </>
           )}
 
+          {queue.length === 1 && (
+            <p className="mb-4 text-bodys text-ink-700">{t.quickCheck.queueNeedTwo}</p>
+          )}
+
           {checkError && <p className="mb-4 text-bodys text-danger-500">{checkError}</p>}
 
-          <Button onClick={runCheck} disabled={queue.length === 0 || checking}>
+          <Button onClick={runCheck} disabled={queue.length < MIN_QUEUE || checking}>
             {checking && <Loader2 size={16} className="animate-spin" />}
             {checking ? t.quickCheck.queueCheckingButton : t.quickCheck.queueCheckButton}
           </Button>
@@ -310,7 +318,9 @@ export function QuickCheckClient({ userType }: { userType: UserType }) {
             </div>
           )}
 
-          {pairs.length === 0 ? (
+          {pairs.length === 0 && queue.length - unresolved.length < MIN_QUEUE ? (
+            <p className="py-6 text-center text-bodym text-ink-700">{t.quickCheck.resultNotComparedBody}</p>
+          ) : pairs.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
               <span className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-success-100 text-success-700">
                 <CheckCircle2 size={40} />
