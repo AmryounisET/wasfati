@@ -11,9 +11,10 @@
 //      and persists every hit to interaction_results (the normal add-a-
 //      medicine flow).
 //   2. { trade_names: [...] } — the "Quick Interaction Check" flow: checks
-//      ad-hoc trade names (resolved via the drugs catalog) against the
-//      caller's saved medications AND each other, but never writes
-//      anything — no medications row, no interaction_results row. Same
+//      ad-hoc trade names (resolved via the drugs catalog) against EACH
+//      OTHER only — never against the caller's saved medications, since it
+//      is a temporary heads-up on a new prescription — and never writes
+//      anything: no medications row, no interaction_results row. Same
 //      matching logic, same interactions table, deliberately no second
 //      implementation of the algorithm.
 //
@@ -237,8 +238,9 @@ async function handleSavedMedicationsCheck(admin: Admin, userId: string, medicat
 
 // ---------------------------------------------------------------------------
 // Entry point 2 — Quick Interaction Check. Resolves each trade name via the
-// drugs catalog, checks it against the caller's saved medications and the
-// rest of the queue, and returns the result WITHOUT saving anything.
+// drugs catalog, checks the queued medicines against each other (NOT against
+// the caller's saved medications), and returns the result WITHOUT saving
+// anything.
 // ---------------------------------------------------------------------------
 async function handleEphemeralCheck(admin: Admin, userId: string, tradeNamesInput: unknown) {
   const tradeNames = (Array.isArray(tradeNamesInput) ? tradeNamesInput : [])
@@ -266,22 +268,13 @@ async function handleEphemeralCheck(admin: Admin, userId: string, tradeNamesInpu
     });
   }
 
-  const { data: existingMeds } = await admin
-    .from("medications")
-    .select("name, generic_name")
-    .eq("user_id", userId)
-    .eq("archived", false);
-
-  const existingEntries: IngredientEntry[] = (existingMeds ?? []).map((m, i) => ({
-    id: `existing-${i}`,
-    name: m.name,
-    ingredients: splitIngredients(m.generic_name),
-    isQueue: false,
-  }));
-
+  // Deliberately NOT compared with the caller's saved medications: a quick
+  // check is a temporary "heads-up on this new prescription" (e.g. before
+  // leaving the clinic), so only the queued medicines are checked against
+  // each other. The caller's own profile flags (pregnancy, elderly, ...)
+  // still apply — those describe the person, not their medication list.
   const profile = await loadProfileFlags(admin, userId);
-  const allEntries = [...queueEntries, ...existingEntries];
-  const hits = await findInteractionHits(admin, allEntries, profile);
+  const hits = await findInteractionHits(admin, queueEntries, profile);
 
   const pairs = mergeHitsByProductPair(hits).map((hit) => ({
     severity: hit.severity,
