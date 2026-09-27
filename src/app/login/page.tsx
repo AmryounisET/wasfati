@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Fingerprint } from "lucide-react";
+import { Fingerprint, UserRound, GraduationCap, Stethoscope } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/components/providers/LanguageProvider";
 import { dirForLocale } from "@/lib/i18n/locales";
@@ -11,7 +11,7 @@ import { isBiometricLoginAvailable, loginWithBiometrics } from "@/lib/webauthn";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { ChoiceChips } from "@/components/ui/ChoiceChips";
+import { cn } from "@/lib/utils";
 import { Banner } from "@/components/ui/Banner";
 import type { UserType } from "@/lib/supabase/types";
 
@@ -129,15 +129,33 @@ export default function LoginPage() {
                 <label className="mb-1.5 block text-bodym font-semibold text-ink-900">
                   {t.auth.userTypeLabel}
                 </label>
-                <ChoiceChips
-                  value={userType}
-                  onChange={(v) => setUserType(v as UserType)}
-                  options={[
-                    { value: "patient", label: t.auth.userTypePatient },
-                    { value: "student", label: t.auth.userTypeStudent },
-                    { value: "provider", label: t.auth.userTypeProvider },
-                  ]}
-                />
+                <div className="flex gap-2">
+                  {(
+                    [
+                      { value: "patient", label: t.auth.userTypePatient, icon: UserRound },
+                      { value: "student", label: t.auth.userTypeStudent, icon: GraduationCap },
+                      { value: "provider", label: t.auth.userTypeProvider, icon: Stethoscope },
+                    ] as const
+                  ).map((role) => {
+                    const active = userType === role.value;
+                    return (
+                      <button
+                        key={role.value}
+                        type="button"
+                        onClick={() => setUserType(role.value)}
+                        className={cn(
+                          "flex flex-1 flex-col items-center gap-1.5 rounded-md border px-1 py-2.5 text-bodys font-semibold transition-colors duration-[var(--duration-fast)]",
+                          active
+                            ? "border-primary-500 bg-primary-500 text-white"
+                            : "border-ink-300 bg-surface-card text-ink-700",
+                        )}
+                      >
+                        <role.icon size={17} />
+                        {role.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </>
           )}

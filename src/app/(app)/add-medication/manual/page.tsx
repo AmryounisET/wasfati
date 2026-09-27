@@ -112,6 +112,7 @@ function ManualEntryForm() {
   const [pendingResults, setPendingResults] = useState<InteractionResultWithIngredients[] | null>(null);
   const [pendingMedId, setPendingMedId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
 
   const canSubmit = name.trim().length > 1 && dose.trim().length > 0 && timeOfDay.length === requiredTimeCount;
 
@@ -184,6 +185,7 @@ function ManualEntryForm() {
         // they ever see it appear in their list.
         setPendingResults(found);
         setPendingMedId(newMed.id);
+        setRiskAcknowledged(false);
         setSubmitting(false);
         return;
       }
@@ -209,6 +211,7 @@ function ManualEntryForm() {
     setCancelling(false);
     setPendingResults(null);
     setPendingMedId(null);
+    setRiskAcknowledged(false);
   }
 
   return (
@@ -332,12 +335,27 @@ function ManualEntryForm() {
               ))}
             </div>
 
+            <label className="mb-4 flex items-start gap-2.5 text-bodys text-ink-700">
+              <input
+                type="checkbox"
+                checked={riskAcknowledged}
+                onChange={(e) => setRiskAcknowledged(e.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 rounded-sm border-ink-300 text-primary-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              />
+              <span>{t.addMedicine.acknowledgeRiskLabel}</span>
+            </label>
+
             <div className="space-y-2">
-              <Button variant="danger" onClick={keepMedicine}>
-                {t.addMedicine.addAnywayButton}
-              </Button>
-              <Button variant="outline" onClick={cancelMedicine} disabled={cancelling}>
-                {cancelling ? t.common.saving : t.common.cancel}
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={cancelMedicine} disabled={cancelling}>
+                  {cancelling ? t.common.saving : t.common.cancel}
+                </Button>
+                <Button variant="danger" onClick={keepMedicine} disabled={!riskAcknowledged}>
+                  {t.addMedicine.addAnywayButton}
+                </Button>
+              </div>
+              <Button variant="secondary" onClick={() => router.push("/assistant")}>
+                {t.addMedicine.askAssistantButton}
               </Button>
             </div>
           </div>

@@ -68,19 +68,22 @@ export function DoseList({
                 <p className="text-caption text-ink-500">{m.frequency}</p>
               </div>
             </div>
-            <Button
-              size="md"
-              variant="primary"
-              disabled={done || pending === m.id}
-              onClick={() => confirmDose(m.id, m.user_id)}
-              className={cn(
-                "w-auto shrink-0 px-4 disabled:text-white disabled:opacity-100",
-                done ? "disabled:bg-success-700" : "disabled:bg-primary-700",
-              )}
-            >
-              {done && <Check size={16} />}
-              {done ? t.home.confirmed : t.home.confirmDose}
-            </Button>
+            {done ? (
+              <span className="flex shrink-0 items-center gap-1.5 px-4 text-bodys font-semibold text-success-700">
+                <Check size={16} />
+                {t.home.confirmed}
+              </span>
+            ) : (
+              <Button
+                size="md"
+                variant="primary"
+                disabled={pending === m.id}
+                onClick={() => confirmDose(m.id, m.user_id)}
+                className={cn("w-auto shrink-0 px-4 disabled:text-white disabled:opacity-100 disabled:bg-primary-700")}
+              >
+                {t.home.confirmDose}
+              </Button>
+            )}
           </Card>
         );
       })}

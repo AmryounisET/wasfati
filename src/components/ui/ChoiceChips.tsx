@@ -29,7 +29,7 @@ export function ChoiceChips({ options, value, onChange, className }: ChoiceChips
               "shrink-0 rounded-pill border px-4 py-2 text-bodys font-medium whitespace-nowrap transition-colors",
               "duration-[var(--duration-fast)]",
               active
-                ? "border-primary-900 bg-primary-900 font-bold text-white"
+                ? "border-primary-500 bg-primary-500 font-bold text-white"
                 : "border-ink-300 bg-surface-card text-ink-700 hover:border-primary-300",
             )}
           >

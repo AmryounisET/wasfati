@@ -7,54 +7,73 @@
 
 @theme {
   /* --- Color: primary (teal) --- */
-  --color-primary-900: #00485a;
-  --color-primary-700: #00677d;
-  --color-primary-500: #217b8e;
-  --color-primary-300: #7fbfcf;
-  --color-primary-100: #bee3ec;
-  --color-primary-050: #e9f6fb;
+  /* v2 theme (2026-09-27): retheme onto the redesign's palette — same 6-step
+     scale, new hex values. No token names changed, so no component needed
+     touching. Old v1 values kept alongside for reference. */
+  --color-primary-900: #0b3d30; /* was #00485a */
+  --color-primary-700: #0f7a5c; /* was #00677d */
+  --color-primary-500: #149e76; /* was #217b8e */
+  --color-primary-300: #2fbe8f; /* was #7fbfcf */
+  --color-primary-100: #cdf0df; /* was #bee3ec */
+  --color-primary-050: #e6f8ef; /* was #e9f6fb */
 
   /* --- Color: semantic --- */
-  --color-success-700: #1b6d32;
-  --color-success-500: #2e9e44;
-  --color-success-100: #b7f2b7;
-  --color-success-050: #eafbea;
+  --color-success-700: #127a4e; /* was #1b6d32 */
+  --color-success-500: #1faf6a; /* was #2e9e44 */
+  --color-success-100: #b9edd1; /* was #b7f2b7 */
+  --color-success-050: #dff5e9; /* was #eafbea */
 
-  --color-warning-700: #8a5300;
-  --color-warning-500: #c67c1b;
-  --color-warning-100: #f2d2a6;
-  --color-warning-050: #fff4e2;
+  --color-warning-700: #9a5b00; /* was #8a5300 */
+  --color-warning-500: #b8790a; /* was #c67c1b */
+  --color-warning-100: #f5dba8; /* was #f2d2a6 */
+  --color-warning-050: #fff0d6; /* was #fff4e2 */
 
-  --color-danger-700: #b3261e;
-  --color-danger-500: #d64545;
-  --color-danger-100: #ffdad6;
-  --color-danger-050: #fff1f0;
+  --color-danger-700: #a3283a; /* was #b3261e */
+  --color-danger-500: #c22b3f; /* was #d64545 */
+  --color-danger-100: #f9c8d0; /* was #ffdad6 */
+  --color-danger-050: #fde3e7; /* was #fff1f0 */
 
   /* --- Color: ink (text/borders) --- */
-  --color-ink-900: #0f2a33;
-  --color-ink-700: #3e5a63;
-  --color-ink-500: #7c939a;
-  --color-ink-300: #c7d6da;
-  --color-ink-100: #e6eef0;
+  --color-ink-900: #0f211d; /* was #0f2a33 */
+  --color-ink-700: #3e4f48; /* was #3e5a63 */
+  --color-ink-500: #657a72; /* was #7c939a */
+  --color-ink-300: #d3e1da; /* was #c7d6da */
+  --color-ink-100: #e4ede9; /* was #e6eef0 */
 
   /* --- Color: surface --- */
-  --color-surface-app: #f6fafc;
+  --color-surface-app: #eef4f1; /* was #f6fafc */
   --color-surface-card: #ffffff;
-  --color-surface-inverse: #0c1b22;
+  --color-surface-inverse: #0b1f1a; /* was #0c1b22 */
 
   /* --- Color: category chips --- */
-  --color-category-rose: #f65296;
-  --color-category-orange: #feae63;
-  --color-category-sky: #64d0ea;
-  --color-category-violet: #a78bfa;
-  --color-category-pinkred: #ff3456;
+  --color-category-rose: #e0526b; /* was #f65296 */
+  --color-category-orange: #e8935a; /* was #feae63 */
+  --color-category-sky: #2e93c7; /* was #64d0ea */
+  --color-category-violet: #8b6fd9; /* was #a78bfa */
+  --color-category-pinkred: #d6441f; /* was #ff3456 */
+
+  /* --- Color: coral (new — emphasis accent, distinct from primary teal) --- */
+  /* Used deliberately sparingly: the add-medicine FAB and its own gradient
+     only, so the one warm accent in an otherwise cool-teal interface still
+     draws the eye to "add a medicine" specifically. */
+  --color-coral-600: #ff6a4d;
+  --color-coral-700: #d6441f;
+  --color-coral-100: #ffe4da;
+  --color-coral-deep: #b5350f;
 
   /* --- Typography --- */
-  /* --font-ibm-plex-sans-arabic / --font-inter are supplied by next/font in layout.tsx */
+  /* next/font variables are supplied in layout.tsx. Baloo 2 and Plus Jakarta
+     Sans have no Arabic glyphs, so --font-display/--font-latin both chain
+     back to plexArabic for any Arabic-script text within them — Arabic
+     headings and body text keep rendering correctly, just via the fallback
+     link in the stack rather than as the first choice. */
   --font-arabic: var(--font-ibm-plex-sans-arabic), ui-sans-serif, system-ui, sans-serif;
-  --font-latin: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-ibm-plex-sans-arabic), var(--font-inter), ui-sans-serif, system-ui,
+  --font-latin: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-baloo-2), var(--font-ibm-plex-sans-arabic), ui-sans-serif, system-ui,
     sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-ibm-plex-sans-arabic), var(--font-plus-jakarta-sans), ui-sans-serif,
+    system-ui, sans-serif;
 
   --text-display: 1.75rem;
   --text-display--line-height: 2.25rem;
@@ -117,6 +136,16 @@ body {
   background: var(--color-surface-app);
   color: var(--color-ink-900);
   font-family: var(--font-sans);
+}
+
+/* Display font applies wherever the display/h1/h2/h3 type-scale utilities
+   are used, not just on semantic heading tags — most of this codebase sizes
+   headings with these classes on <p>/<span>, not <h1>/<h2>/<h3>. */
+.text-display,
+.text-h1,
+.text-h2,
+.text-h3 {
+  font-family: var(--font-display);
 }
 
 /* Senior-friendly mode (toggled via [data-senior-mode="true"] on <html>) —

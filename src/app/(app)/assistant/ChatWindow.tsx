@@ -96,10 +96,10 @@ export function ChatWindow({ initialMessages }: { initialMessages: ChatMessage[]
           >
             <div
               className={cn(
-                "max-w-[80%] rounded-lg px-4 py-3 text-bodym",
+                "max-w-[82%] rounded-lg px-4 py-3 text-bodym",
                 m.source === "user"
-                  ? "bg-primary-900 text-white"
-                  : "border border-ink-100 bg-surface-card text-ink-900",
+                  ? "rounded-br-[5px] bg-primary-500 text-white"
+                  : "rounded-bl-[5px] border-[1.5px] border-ink-100 bg-surface-card text-ink-900",
               )}
             >
               {m.text}

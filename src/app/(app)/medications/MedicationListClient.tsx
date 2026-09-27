@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Users } from "lucide-react";
+import { Trash2, Users, Pencil, RotateCw, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/components/providers/LanguageProvider";
 import { interpolate } from "@/lib/i18n/get-dictionary";
@@ -107,32 +107,41 @@ export function MedicationListClient({
                   <p className="text-caption text-ink-500">{m.generic_name}</p>
                 </div>
               </div>
-              {m.low_stock && <Badge variant="warning">⚠ {t.medications.lowStockBadge}</Badge>}
+              {m.low_stock && <Badge variant="warning">{t.medications.lowStockBadge}</Badge>}
             </div>
 
-            <div className="mt-3 flex items-center gap-2">
+            {m.low_stock && (
+              <div className="mt-2.5 flex items-start gap-1.5 rounded-md bg-warning-050 p-2.5 text-caption text-warning-700">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                {t.medications.lowStockNote}
+              </div>
+            )}
+
+            <div className="mt-3 flex items-center gap-4 border-t border-ink-100 pt-3">
               <button
                 type="button"
                 onClick={() => router.push(`/medications/${m.id}/edit`)}
-                className="rounded-md bg-primary-050 px-3 py-1.5 text-bodys font-medium text-primary-900"
+                className="flex items-center gap-1.5 text-bodys font-bold text-primary-700"
               >
-                ✎ {t.common.edit}
+                <Pencil size={14} />
+                {t.common.edit}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(m)}
-                aria-label={t.common.delete}
-                className="rounded-md bg-danger-050 p-2 text-danger-500"
+                className="flex items-center gap-1.5 text-bodys font-bold text-danger-500"
               >
-                <Trash2 size={16} />
+                <Trash2 size={14} />
+                {t.common.delete}
               </button>
               {m.low_stock && (
                 <button
                   type="button"
                   onClick={() => renewStock(m.id)}
-                  className="rounded-md bg-success-100 px-3 py-1.5 text-bodys font-medium text-success-700"
+                  className="ms-auto flex items-center gap-1.5 text-bodys font-bold text-primary-700"
                 >
-                  ⟳ {t.medications.renewStock}
+                  <RotateCw size={14} />
+                  {t.medications.renewStock}
                 </button>
               )}
             </div>

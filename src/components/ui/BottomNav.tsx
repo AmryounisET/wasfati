@@ -40,9 +40,9 @@ export function BottomNav() {
                 type="button"
                 aria-label={t.nav.addMedicine}
                 onClick={() => router.push(item.href)}
-                className="-mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary-500 text-white shadow-fab transition-transform duration-[var(--duration-fast)] active:scale-95"
+                className="-mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-coral-600 to-coral-deep text-white shadow-[0_10px_22px_-6px_rgba(181,53,15,0.5)] transition-transform duration-[var(--duration-fast)] active:scale-95"
               >
-                <Icon size={26} />
+                <Icon size={24} strokeWidth={2.2} />
               </button>
             );
           }
@@ -55,13 +55,13 @@ export function BottomNav() {
             >
               <span
                 className={cn(
-                  "flex h-9 w-14 items-center justify-center rounded-pill transition-colors duration-[var(--duration-fast)]",
-                  active ? "bg-primary-100 text-primary-900" : "text-white/70",
+                  "flex h-9 w-14 items-center justify-center transition-colors duration-[var(--duration-fast)]",
+                  active ? "text-primary-300" : "text-white/70",
                 )}
               >
-                <Icon size={20} />
+                <Icon size={21} />
               </span>
-              <span className={cn(active ? "text-white font-medium" : "text-white/60")}>
+              <span className={cn(active ? "text-primary-300 font-semibold" : "text-white/60")}>
                 {item.label}
               </span>
             </Link>

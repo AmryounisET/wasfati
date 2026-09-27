@@ -13,6 +13,8 @@ import { displayName } from "@/lib/i18n/transliterate";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 
+const ADHERENCE_RING_CIRCUMFERENCE = 2 * Math.PI * 24;
+
 export default async function HomePage() {
   const supabase = await createClient();
   const user = await getUser();
@@ -88,6 +90,11 @@ export default async function HomePage() {
 
   const firstName = displayName(profile?.full_name || "", locale).split(" ")[0];
 
+  // Adherence ring: share of today's medicines confirmed so far. Guards
+  // against 0/0 (no active medicines yet) rather than showing a misleading
+  // 100% or dividing by zero.
+  const adherencePct = meds.length > 0 ? Math.round((confirmedMedicationIds.size / meds.length) * 100) : null;
+
   const missedAlertsByOwner = new Map(
     (careLinks ?? []).map((l) => [l.owner_user_id, l.can_view_missed_dose_alerts]),
   );
@@ -130,20 +137,63 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <Link href="/quick-check" className="mb-6 block">
-        <Card className="flex items-center gap-3 border-primary-100 bg-primary-050">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary-100 text-primary-900">
+      <div className="mb-6 rounded-lg bg-gradient-to-br from-primary-500 to-primary-900 p-5 shadow-[0_12px_28px_-10px_rgba(11,61,48,0.5)]">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-white/15 text-white">
             <Sparkles size={22} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-h3 font-bold text-ink-900">{t.quickCheck.homeCardTitle}</p>
-            <p className="text-bodys text-ink-700">{t.quickCheck.homeCardSubtitle}</p>
+            <p className="text-h3 font-bold text-white">{t.quickCheck.homeCardTitle}</p>
+            <p className="text-bodys text-white/80">{t.quickCheck.homeCardSubtitle}</p>
           </div>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-primary-500 bg-white text-primary-700">
-            <Plus size={18} />
-          </span>
+        </div>
+        <Link
+          href="/add-medication"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-white text-button font-bold text-primary-900 transition-colors duration-[var(--duration-fast)] active:bg-white/90"
+        >
+          <Plus size={18} />
+          {t.home.checkNewMedicineButton}
+        </Link>
+        <Link
+          href="/quick-check"
+          className="mt-3 block text-center text-bodys font-semibold text-white underline underline-offset-2"
+        >
+          {t.home.quickCheckLinkOut}
+        </Link>
+      </div>
+
+      {adherencePct !== null && (
+        <Card className="mb-4 flex items-center gap-3">
+          <div className="relative h-14 w-14 shrink-0">
+            <svg viewBox="0 0 56 56" className="h-14 w-14 -rotate-90">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="var(--color-ink-100)" strokeWidth="6" />
+              <circle
+                cx="28"
+                cy="28"
+                r="24"
+                fill="none"
+                stroke="var(--color-primary-500)"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={ADHERENCE_RING_CIRCUMFERENCE}
+                strokeDashoffset={ADHERENCE_RING_CIRCUMFERENCE * (1 - adherencePct / 100)}
+              />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-caption font-bold text-ink-900 tabular-nums">
+              {adherencePct}%
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-h3 font-bold text-ink-900">{t.home.adherenceTitle}</p>
+            <p className="text-bodys text-ink-700">
+              {interpolate(t.home.adherenceSubtitle, {
+                confirmed: String(confirmedMedicationIds.size),
+                total: String(meds.length),
+              })}
+            </p>
+          </div>
         </Card>
-      </Link>
+      )}
 
       <div className="mb-4 space-y-3">
         {(incomingInvites ?? []).length > 0 && (
@@ -182,7 +232,12 @@ export default async function HomePage() {
         })()}
       </div>
 
-      <h2 className="mb-3 text-h2 font-bold text-ink-900">{t.home.todayDoses}</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-h2 font-bold text-ink-900">{t.home.todayDoses}</h2>
+        <Link href="/medications" className="text-bodys font-semibold text-primary-700 underline underline-offset-2">
+          {t.home.viewSchedule}
+        </Link>
+      </div>
       <DoseList medications={meds} confirmedIds={[...confirmedMedicationIds]} />
 
       {family.length > 0 && (
