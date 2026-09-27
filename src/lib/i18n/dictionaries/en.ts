@@ -65,7 +65,7 @@ const en: Dictionary = {
     missedDoseBodyEn: "Missed dose: {name} {dose}",
     checkNewMedicineButton: "Check a New Medicine",
     quickCheckLinkOut: "Run a quick check without saving →",
-    adherenceTitle: "Today's adherence",
+    adherenceTitle: "Today's Meds Tracker",
     adherenceSubtitle: "{confirmed} of {total} doses taken",
     viewSchedule: "View Schedule",
     todayDoses: "Today's Doses",

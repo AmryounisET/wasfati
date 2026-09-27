@@ -66,7 +66,7 @@ const it: Dictionary = {
     missedDoseBodyEn: "Missed dose: {name} {dose}",
     checkNewMedicineButton: "Controlla un nuovo farmaco",
     quickCheckLinkOut: "Esegui un controllo rapido senza salvare →",
-    adherenceTitle: "Aderenza di oggi",
+    adherenceTitle: "Monitoraggio farmaci di oggi",
     adherenceSubtitle: "{confirmed} di {total} dosi assunte",
     viewSchedule: "Vedi programma",
     todayDoses: "Dosi di oggi",

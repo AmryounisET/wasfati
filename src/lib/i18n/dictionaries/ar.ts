@@ -63,7 +63,7 @@ const ar = {
     missedDoseBodyEn: "Missed dose: {name} {dose}",
     checkNewMedicineButton: "فحص دواء جديد",
     quickCheckLinkOut: "إجراء فحص سريع بدون حفظ ←",
-    adherenceTitle: "الالتزام اليوم",
+    adherenceTitle: "متتبع أدوية اليوم",
     adherenceSubtitle: "{confirmed} من {total} جرعات تم تناولها",
     viewSchedule: "عرض الجدول",
     todayDoses: "جرعات اليوم",

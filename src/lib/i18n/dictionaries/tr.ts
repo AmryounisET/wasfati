@@ -65,7 +65,7 @@ const tr: Dictionary = {
     missedDoseBodyEn: "Missed dose: {name} {dose}",
     checkNewMedicineButton: "Yeni Bir İlacı Kontrol Et",
     quickCheckLinkOut: "Kaydetmeden hızlı kontrol yap →",
-    adherenceTitle: "Bugünkü uyum",
+    adherenceTitle: "Bugünün İlaç Takibi",
     adherenceSubtitle: "{total} dozdan {confirmed} alındı",
     viewSchedule: "Programı Görüntüle",
     todayDoses: "Bugünün Dozları",

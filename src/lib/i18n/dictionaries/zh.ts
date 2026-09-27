@@ -65,7 +65,7 @@ const zh: Dictionary = {
     missedDoseBodyEn: "Missed dose: {name} {dose}",
     checkNewMedicineButton: "检查新药物",
     quickCheckLinkOut: "无需保存快速检查 →",
-    adherenceTitle: "今日服药依从性",
+    adherenceTitle: "今日用药追踪",
     adherenceSubtitle: "已服用 {confirmed}/{total} 剂",
     viewSchedule: "查看日程",
     todayDoses: "今日剂量",

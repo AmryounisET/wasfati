@@ -66,7 +66,7 @@ const ru: Dictionary = {
     missedDoseBodyEn: "Missed dose: {name} {dose}",
     checkNewMedicineButton: "Проверить новое лекарство",
     quickCheckLinkOut: "Быстрая проверка без сохранения →",
-    adherenceTitle: "Приём сегодня",
+    adherenceTitle: "Трекер приёма лекарств сегодня",
     adherenceSubtitle: "{confirmed} из {total} приёмов выполнено",
     viewSchedule: "Показать график",
     todayDoses: "Приёмы на сегодня",
