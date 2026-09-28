@@ -27,3 +27,7 @@ export function canWriteCatalog(role: AdminRole | null) {
 export function canWriteLegal(role: AdminRole | null) {
   return role === "superadmin";
 }
+
+export function canWriteLandingPage(role: AdminRole | null) {
+  return role === "superadmin";
+}

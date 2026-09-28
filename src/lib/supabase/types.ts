@@ -25,6 +25,7 @@ export type ChatSource = "user" | "ai" | "engine";
 export type CareCircleStatus = "pending" | "linked" | "revoked";
 export type AdminRole = "support" | "pharmacist_reviewer" | "superadmin";
 export type LegalDocType = "terms" | "privacy";
+export type LandingLocale = Extract<Locale, "ar" | "en">;
 
 export type Profile = {
   id: string;
@@ -221,6 +222,64 @@ export type LegalDocument = {
   updated_by: string | null;
 }
 
+export type LandingPageContentRow = {
+  id: string;
+  locale: LandingLocale;
+  content: LandingPageContentData;
+  updated_at: string;
+  updated_by: string | null;
+};
+
+export type LandingPageContentData = {
+  nav: { brand: string; features: string; how: string; cta: string };
+  hero: {
+    eyebrow: string;
+    headlineLine1: string;
+    headlineHighlight: string;
+    lede: string;
+    ctaPrimary: string;
+    ctaLink: string;
+    note: string;
+  };
+  phone: {
+    greet: string;
+    name: string;
+    heroTitle: string;
+    heroSub: string;
+    heroBtn: string;
+    ringTitle: string;
+    ringSub: string;
+    chip: string;
+  };
+  stats: {
+    medsValue: string;
+    medsLabel: string;
+    interactionsValue: string;
+    interactionsLabel: string;
+    langsValue: string;
+    langsLabel: string;
+  };
+  features: {
+    eyebrow: string;
+    h2: string;
+    p: string;
+    items: [
+      { title: string; body: string },
+      { title: string; body: string },
+      { title: string; body: string },
+      { title: string; body: string },
+    ];
+  };
+  how: {
+    eyebrow: string;
+    h2: string;
+    steps: [{ title: string; body: string }, { title: string; body: string }, { title: string; body: string }];
+  };
+  final: { h2: string; p: string; cta: string };
+  install: { h3: string; steps: [string, string, string] };
+  footer: { brand: string; disclaimer: string; copy: string };
+};
+
 export type Database = {
   // Recent @supabase/supabase-js versions require this marker on generated
   // Database types to resolve the client's schema generics correctly.
@@ -297,6 +356,12 @@ export type Database = {
         Row: LegalDocument;
         Insert: Partial<LegalDocument> & { doc_type: LegalDocType; locale: LanguageCode; content: string };
         Update: Partial<LegalDocument>;
+        Relationships: [];
+      };
+      landing_page_content: {
+        Row: LandingPageContentRow;
+        Insert: Partial<LandingPageContentRow> & { locale: LandingLocale; content: LandingPageContentData };
+        Update: Partial<LandingPageContentRow>;
         Relationships: [];
       };
       data_versions: {

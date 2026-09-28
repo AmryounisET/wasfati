@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Pill, ShieldAlert, FileText, HeartHandshake } from "lucide-react";
+import { LayoutDashboard, Users, Pill, ShieldAlert, FileText, HeartHandshake, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AdminRole } from "@/lib/supabase/types";
 
@@ -13,6 +13,7 @@ const links = [
   { href: "/admin/drugs", label: "Drugs", icon: Pill },
   { href: "/admin/interactions", label: "Interactions", icon: ShieldAlert },
   { href: "/admin/legal", label: "Legal Documents", icon: FileText },
+  { href: "/admin/landing-page", label: "Landing Page", icon: Globe },
 ];
 
 export function AdminNav({ role, backToAppLabel }: { role: AdminRole; backToAppLabel: string }) {

@@ -274,6 +274,20 @@ create policy "legal_documents_write_superadmin" on public.legal_documents for a
   );
 
 -- ---------------------------------------------------------------------------
+-- landing_page_content — the public marketing page at "/" has no auth, so
+-- unlike legal_documents this must be readable by anon visitors too. Still
+-- superadmin-only to write.
+-- ---------------------------------------------------------------------------
+create policy "landing_page_content_select_public" on public.landing_page_content for select
+  using (true);
+
+create policy "landing_page_content_write_superadmin" on public.landing_page_content for all
+  using (
+    exists (select 1 from public.admin_users
+            where user_id = auth.uid() and role = 'superadmin')
+  );
+
+-- ---------------------------------------------------------------------------
 -- data_versions — readable by any authenticated user (the admin panel's
 -- "current data version" header); never written to directly by client
 -- code — see bump_data_version() below, called instead of an insert/update
