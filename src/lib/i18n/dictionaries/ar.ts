@@ -62,7 +62,7 @@ const ar = {
     missedDoseBody: "لم تُوثَّق جرعة {name} {dose} المقررة.",
     missedDoseBodyEn: "Missed dose: {name} {dose}",
     checkNewMedicineButton: "فحص دواء جديد",
-    quickCheckLinkOut: "إجراء فحص سريع بدون حفظ ←",
+    addToListLinkOut: "أو أضفه إلى قائمة أدويتك ←",
     adherenceTitle: "متتبع أدوية اليوم",
     adherenceSubtitle: "{confirmed} من {total} جرعات تم تناولها",
     viewSchedule: "عرض الجدول",

@@ -64,7 +64,7 @@ const zh: Dictionary = {
     missedDoseBody: "{name} {dose} 的剂量尚未确认。",
     missedDoseBodyEn: "Missed dose: {name} {dose}",
     checkNewMedicineButton: "检查新药物",
-    quickCheckLinkOut: "无需保存快速检查 →",
+    addToListLinkOut: "或将其保存到用药清单 →",
     adherenceTitle: "今日用药追踪",
     adherenceSubtitle: "已服用 {confirmed}/{total} 剂",
     viewSchedule: "查看日程",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, ShieldCheck, Users, ShieldAlert, Sparkles, Plus } from "lucide-react";
+import { Bell, ShieldCheck, Users, ShieldAlert, Sparkles } from "lucide-react";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { Screen } from "@/components/layout/Screen";
 import { Banner } from "@/components/ui/Banner";
@@ -148,17 +148,17 @@ export default async function HomePage() {
           </div>
         </div>
         <Link
-          href="/add-medication"
+          href="/quick-check"
           className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-white text-button font-bold text-primary-900 transition-colors duration-[var(--duration-fast)] active:bg-white/90"
         >
-          <Plus size={18} />
+          <Sparkles size={18} />
           {t.home.checkNewMedicineButton}
         </Link>
         <Link
-          href="/quick-check"
+          href="/add-medication"
           className="mt-3 block text-center text-bodys font-semibold text-white underline underline-offset-2"
         >
-          {t.home.quickCheckLinkOut}
+          {t.home.addToListLinkOut}
         </Link>
       </div>
 
