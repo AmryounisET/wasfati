@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ShieldOff, ShieldCheck, Plus, Copy, KeyRound } from "lucide-react";
+import { Search, ShieldOff, ShieldCheck, Plus, Copy, KeyRound, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logAdminAction } from "@/lib/admin/audit";
 import { extractFunctionError } from "@/lib/edge-function-error";
@@ -46,6 +46,10 @@ export function UsersTable({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<AdminUserDirectoryRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [resetTarget, setResetTarget] = useState<AdminUserDirectoryRow | null>(null);
   const [resetPasswordMode, setResetPasswordMode] = useState<"random" | "custom">("random");
@@ -128,6 +132,29 @@ export function UsersTable({
       await logAdminAction(supabase, user.id, nextActive ? "user_activate" : "user_deactivate", "profiles", u.id);
     }
     setUsers((prev) => prev.map((row) => (row.id === u.id ? { ...row, is_active: nextActive } : row)));
+    router.refresh();
+  }
+
+  async function deleteUser() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const { data, error: fnError } = await supabase.functions.invoke("admin-delete-user", {
+      body: { user_id: deleteTarget.id },
+      headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+    });
+    setDeleting(false);
+    if (fnError || !data || data.error) {
+      setDeleteError(data?.error ?? (await extractFunctionError(fnError, "Failed to delete user.")));
+      return;
+    }
+    // The Edge Function already writes the audit_log row (service role,
+    // always succeeds) — no separate client-side log call needed here.
+    setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+    setDeleteTarget(null);
     router.refresh();
   }
 
@@ -295,11 +322,24 @@ export function UsersTable({
                   <button
                     type="button"
                     onClick={() => toggleActive(u)}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-ink-700 hover:bg-ink-100"
+                    className="me-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-ink-700 hover:bg-ink-100"
                     title={u.is_active ? "Deactivate" : "Reactivate"}
                   >
                     {u.is_active ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
                   </button>
+                  {role === "superadmin" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteTarget(u);
+                        setDeleteError(null);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-danger-500 hover:bg-danger-050"
+                      title="Delete permanently"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -320,9 +360,10 @@ export function UsersTable({
       <Pagination page={page_} totalPages={totalPages} onChange={setPage} />
 
       <p className="mt-3 text-caption text-ink-500">
-        Signed in as <span className="font-medium">{role}</span>. &ldquo;Deactivate&rdquo; is an in-app flag
-        only — it hides the account from safety checks and caregiver views, but does not revoke Supabase Auth
-        sign-in (that requires the service-role key, which isn&apos;t exposed to this dashboard).
+        Signed in as <span className="font-medium">{role}</span>. &ldquo;Deactivate&rdquo; is a reversible
+        in-app flag only — it hides the account from safety checks and caregiver views without deleting
+        anything. &ldquo;Delete&rdquo; (superadmin-only) is permanent: it removes the account&apos;s sign-in
+        and every medicine, dose log, and chat message tied to it.
       </p>
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit user">
@@ -555,6 +596,27 @@ export function UsersTable({
                 </div>
               </>
             )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete user permanently">
+        {deleteTarget && (
+          <div className="space-y-4">
+            <p className="text-bodys text-ink-700">
+              This permanently deletes <span className="font-medium">{deleteTarget.email}</span>
+              {deleteTarget.full_name ? ` (${deleteTarget.full_name})` : ""} — their sign-in, profile, medicines,
+              dose history, and chat history. This cannot be undone.
+            </p>
+            {deleteError && <p className="text-bodys text-danger-500">{deleteError}</p>}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)} size="md">
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={deleteUser} disabled={deleting} size="md">
+                {deleting ? "Deleting…" : "Delete permanently"}
+              </Button>
+            </div>
           </div>
         )}
       </Modal>

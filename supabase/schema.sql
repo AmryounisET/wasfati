@@ -174,7 +174,9 @@ create table public.data_versions (
   table_name text primary key check (table_name in ('drugs', 'interactions')),
   version int not null default 1,
   updated_at timestamptz not null default now(),
-  updated_by uuid references auth.users (id),
+  -- set null (not cascade): deleting the admin who last touched this row
+  -- must not delete the version row itself.
+  updated_by uuid references auth.users (id) on delete set null,
   source text -- 'initial_import' | 'bulk_upload' | 'manual_edit'
 );
 
@@ -229,7 +231,9 @@ create table public.legal_documents (
   content text not null default '',
   version text not null default '1.0',
   updated_at timestamptz not null default now(),
-  updated_by uuid references auth.users (id),
+  -- set null (not cascade): deleting the admin who last edited this
+  -- document must not delete the document itself.
+  updated_by uuid references auth.users (id) on delete set null,
   unique (doc_type, locale)
 );
 
@@ -247,7 +251,9 @@ create table public.landing_page_content (
   locale text not null check (locale in ('ar','en')),
   content jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now(),
-  updated_by uuid references auth.users (id),
+  -- set null (not cascade): deleting the admin who last edited this copy
+  -- must not delete the copy itself.
+  updated_by uuid references auth.users (id) on delete set null,
   unique (locale)
 );
 
@@ -305,7 +311,10 @@ create index care_circle_caregiver_idx on public.care_circle_links (caregiver_us
 -- ---------------------------------------------------------------------------
 create table public.audit_log (
   id uuid primary key default gen_random_uuid(),
-  actor_user_id uuid references auth.users (id),
+  -- set null (not cascade): deleting a user (e.g. via admin-delete-user)
+  -- must not delete their prior audit trail — accountability records
+  -- should outlive the account.
+  actor_user_id uuid references auth.users (id) on delete set null,
   action text not null,
   target_table text,
   target_id uuid,
