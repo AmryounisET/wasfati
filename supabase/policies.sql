@@ -30,6 +30,11 @@ $$ language sql stable security definer;
 -- auth.users, but checks is_admin() itself before returning anything —
 -- the same effect as an admin-only RLS policy, without needing the
 -- service-role key in the app at all.
+-- Signature changed (added is_superadmin) after this function already
+-- existed live, so a plain CREATE OR REPLACE isn't enough — Postgres
+-- refuses to change a function's return type that way.
+drop function if exists public.admin_list_users();
+
 create function public.admin_list_users()
 returns table (
   id uuid,
@@ -41,7 +46,8 @@ returns table (
   created_at timestamptz,
   email text,
   last_sign_in_at timestamptz,
-  email_confirmed_at timestamptz
+  email_confirmed_at timestamptz,
+  is_superadmin boolean
 )
 language plpgsql
 security definer
@@ -58,9 +64,11 @@ begin
   return query
     select p.id, p.full_name::text, p.user_type::text, p.phone_number::text, p.is_active,
            p.language_code::text, p.created_at,
-           u.email::text, u.last_sign_in_at, u.email_confirmed_at
+           u.email::text, u.last_sign_in_at, u.email_confirmed_at,
+           (au.user_id is not null) as is_superadmin
     from public.profiles p
     join auth.users u on u.id = p.id
+    left join public.admin_users au on au.user_id = p.id
     order by p.created_at desc;
 end;
 $$;
@@ -111,9 +119,8 @@ create policy "dose_logs_update_own" on public.dose_logs for update
 -- ---------------------------------------------------------------------------
 -- interactions — the validated reference dataset. Readable by any
 -- authenticated user (needed for the Edge Function's query context; the
--- function itself runs with the service role anyway) but only admins with
--- the pharmacist_reviewer/superadmin role may modify it — never end users,
--- never the AI.
+-- function itself runs with the service role anyway) but only superadmins
+-- may modify it — never end users, never the AI.
 -- ---------------------------------------------------------------------------
 create policy "interactions_select_authenticated" on public.interactions for select
   using (auth.role() = 'authenticated');
@@ -121,7 +128,7 @@ create policy "interactions_select_authenticated" on public.interactions for sel
 create policy "interactions_write_admin_only" on public.interactions for all
   using (
     exists (select 1 from public.admin_users
-            where user_id = auth.uid() and role in ('pharmacist_reviewer','superadmin'))
+            where user_id = auth.uid() and role = 'superadmin')
   );
 
 -- ---------------------------------------------------------------------------
@@ -137,9 +144,8 @@ create policy "interaction_results_select_own_or_caregiver" on public.interactio
 
 -- Deleting a logged safety-check result (e.g. a false positive, or a
 -- user request to clear something from the admin dashboard) is
--- superadmin-only — one tier above the pharmacist_reviewer bar on
--- interactions/drugs, since this touches a specific person's health
--- history rather than the shared reference catalog.
+-- superadmin-only, same as every other admin write in this file — there is
+-- only one admin tier.
 create policy "interaction_results_delete_superadmin" on public.interaction_results for delete
   using (
     exists (select 1 from public.admin_users
@@ -247,8 +253,8 @@ create policy "audit_log_insert_admin" on public.audit_log for insert
 
 -- ---------------------------------------------------------------------------
 -- drugs — the trade-name catalog. Readable by any authenticated user (the
--- add-medicine search screen needs it); writable only by admins with the
--- pharmacist_reviewer/superadmin role, same bar as `interactions`.
+-- add-medicine search screen needs it); writable only by superadmins, same
+-- bar as `interactions`.
 -- ---------------------------------------------------------------------------
 create policy "drugs_select_authenticated" on public.drugs for select
   using (auth.role() = 'authenticated');
@@ -256,7 +262,7 @@ create policy "drugs_select_authenticated" on public.drugs for select
 create policy "drugs_write_admin_only" on public.drugs for all
   using (
     exists (select 1 from public.admin_users
-            where user_id = auth.uid() and role in ('pharmacist_reviewer','superadmin'))
+            where user_id = auth.uid() and role = 'superadmin')
   );
 
 -- ---------------------------------------------------------------------------
@@ -312,7 +318,7 @@ declare
 begin
   if not exists (
     select 1 from public.admin_users
-    where user_id = auth.uid() and role in ('pharmacist_reviewer', 'superadmin')
+    where user_id = auth.uid() and role = 'superadmin'
   ) then
     raise exception 'not authorized';
   end if;

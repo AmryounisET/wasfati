@@ -7,14 +7,18 @@
 // the real, irreversible counterpart to the in-app "Deactivate" flag
 // (profiles.is_active), which only hides the account from safety checks
 // and caregiver views without touching Auth or deleting anything.
-// Superadmin-only, since it can't be undone. Same server-side-only pattern
-// as admin-create-user/admin-reset-password: auth.admin.deleteUser needs
-// the service-role key, which only exists here, never in the browser.
+// Superadmin-only, since it can't be undone, and the original superadmin
+// account itself can never be deleted (see admin-set-role — deleting it
+// would mean nobody could ever grant the role again). Same
+// server-side-only pattern as admin-create-user/admin-reset-password:
+// auth.admin.deleteUser needs the service-role key, which only exists
+// here, never in the browser.
 //
 // Deploy: supabase functions deploy admin-delete-user
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ORIGINAL_SUPERADMIN_EMAIL } from "../_shared/original-superadmin.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -61,6 +65,13 @@ serve(async (req) => {
     const { data: targetProfile } = await admin.from("profiles").select("full_name").eq("id", user_id).maybeSingle();
     const { data: targetUser } = await admin.auth.admin.getUserById(user_id);
     const targetEmail = targetUser?.user?.email ?? null;
+
+    // Without this, any superadmin could delete the one account allowed to
+    // grant/revoke superadmin status, and the role could never be granted
+    // again by anyone.
+    if (targetEmail?.toLowerCase() === ORIGINAL_SUPERADMIN_EMAIL) {
+      return json({ error: "The original superadmin account cannot be deleted." }, 400);
+    }
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(user_id);
     if (deleteError) {

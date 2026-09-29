@@ -20,8 +20,11 @@ export async function requireAdmin() {
   return { supabase, user, role: (adminRow?.role ?? null) as AdminRole | null };
 }
 
+// There's only one admin tier now (superadmin), so these are all
+// equivalent to `role === "superadmin"` — kept as separate named functions
+// per call site so each page still documents what it's gating.
 export function canWriteCatalog(role: AdminRole | null) {
-  return role === "pharmacist_reviewer" || role === "superadmin";
+  return role === "superadmin";
 }
 
 export function canWriteLegal(role: AdminRole | null) {

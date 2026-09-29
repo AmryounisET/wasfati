@@ -23,7 +23,10 @@ export type Severity = "low" | "moderate" | "high" | "unverified";
 export type Confidence = "high" | "medium" | "low";
 export type ChatSource = "user" | "ai" | "engine";
 export type CareCircleStatus = "pending" | "linked" | "revoked";
-export type AdminRole = "support" | "pharmacist_reviewer" | "superadmin";
+// Only one elevated tier exists — a user is either a superadmin (a row in
+// admin_users) or a normal user (no row). Only the original superadmin
+// account can grant/revoke this, checked by email in admin-set-role.
+export type AdminRole = "superadmin";
 export type LegalDocType = "terms" | "privacy";
 export type LandingLocale = Extract<Locale, "ar" | "en">;
 
@@ -58,6 +61,7 @@ export type AdminUserDirectoryRow = {
   email: string;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
+  is_superadmin: boolean;
 }
 
 export type Medication = {

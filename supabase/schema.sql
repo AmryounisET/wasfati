@@ -323,14 +323,15 @@ create table public.audit_log (
 );
 
 -- ---------------------------------------------------------------------------
--- admin_users — allow-list for the Flutter-web admin dashboard. Membership
--- here is what RLS checks to grant elevated read access (see policies.sql).
--- Insert rows manually via the Supabase SQL editor after creating the
--- corresponding auth user — never expose self-serve admin signup.
+-- admin_users — allow-list for the admin panel. There is only one elevated
+-- tier (superadmin); everyone else is a normal user (no row here). Only
+-- the original superadmin account (amrsamyounis@gmail.com, checked by
+-- email in admin-set-role) can add or remove rows — see that Edge
+-- Function; never expose self-serve admin signup.
 -- ---------------------------------------------------------------------------
 create table public.admin_users (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  role text not null default 'support' check (role in ('support','pharmacist_reviewer','superadmin')),
+  role text not null default 'superadmin' check (role in ('superadmin')),
   created_at timestamptz not null default now()
 );
 

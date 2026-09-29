@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ShieldOff, ShieldCheck, Plus, Copy, KeyRound, Trash2 } from "lucide-react";
+import { Search, ShieldOff, ShieldCheck, Plus, Copy, KeyRound, Trash2, Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logAdminAction } from "@/lib/admin/audit";
 import { extractFunctionError } from "@/lib/edge-function-error";
@@ -15,16 +15,27 @@ import type { AdminRole, AdminUserDirectoryRow, UserType } from "@/lib/supabase/
 const USER_TYPES: UserType[] = ["patient", "student", "provider"];
 const PAGE_SIZE = 50;
 
+// Must match supabase/functions/_shared/original-superadmin.ts — the only
+// account allowed to change anyone's role. Checked server-side too (the
+// Edge Function is the real gate); this only hides the controls from
+// everyone else in the UI.
+const ORIGINAL_SUPERADMIN_EMAIL = "amrsamyounis@gmail.com";
+
 export function UsersTable({
   users: initialUsers,
   role,
+  callerEmail,
 }: {
   users: AdminUserDirectoryRow[];
   role: AdminRole | null;
+  callerEmail: string | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const isOriginalSuperadmin = callerEmail?.toLowerCase() === ORIGINAL_SUPERADMIN_EMAIL;
   const [users, setUsers] = useState(initialUsers);
+  const [roleChanging, setRoleChanging] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<AdminUserDirectoryRow | null>(null);
@@ -135,6 +146,27 @@ export function UsersTable({
     router.refresh();
   }
 
+  async function setSuperadmin(u: AdminUserDirectoryRow, makeSuperadmin: boolean) {
+    setRoleChanging(u.id);
+    setRoleError(null);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const { data, error: fnError } = await supabase.functions.invoke("admin-set-role", {
+      body: { user_id: u.id, make_superadmin: makeSuperadmin },
+      headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+    });
+    setRoleChanging(null);
+    if (fnError || !data || data.error) {
+      setRoleError(data?.error ?? (await extractFunctionError(fnError, "Failed to change role.")));
+      return;
+    }
+    // The Edge Function already writes the audit_log row (service role,
+    // always succeeds) — no separate client-side log call needed here.
+    setUsers((prev) => prev.map((row) => (row.id === u.id ? { ...row, is_superadmin: makeSuperadmin } : row)));
+    router.refresh();
+  }
+
   async function deleteUser() {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -212,6 +244,7 @@ export function UsersTable({
         email: data.user.email,
         last_sign_in_at: null,
         email_confirmed_at: new Date().toISOString(),
+        is_superadmin: false,
       },
       ...prev,
     ]);
@@ -279,6 +312,7 @@ export function UsersTable({
               <th className="px-3 py-2 text-start">Email</th>
               <th className="px-3 py-2 text-start">Type</th>
               <th className="px-3 py-2 text-start">Phone</th>
+              <th className="px-3 py-2 text-start">Role</th>
               <th className="px-3 py-2 text-start">Status</th>
               <th className="px-3 py-2 text-start">Joined</th>
               <th className="px-3 py-2" />
@@ -291,6 +325,17 @@ export function UsersTable({
                 <td className="px-3 py-2 text-ink-700">{u.email}</td>
                 <td className="px-3 py-2 capitalize text-ink-700">{u.user_type}</td>
                 <td className="px-3 py-2 text-ink-700">{u.phone_number || "—"}</td>
+                <td className="px-3 py-2">
+                  {u.is_superadmin ? (
+                    <span className="inline-flex items-center gap-1 rounded-pill bg-primary-100 px-2 py-0.5 text-caption font-medium text-primary-900">
+                      <Crown size={11} /> Superadmin
+                    </span>
+                  ) : (
+                    <span className="rounded-pill bg-ink-100 px-2 py-0.5 text-caption font-medium text-ink-700">
+                      User
+                    </span>
+                  )}
+                </td>
                 <td className="px-3 py-2">
                   <span
                     className={
@@ -327,6 +372,17 @@ export function UsersTable({
                   >
                     {u.is_active ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
                   </button>
+                  {isOriginalSuperadmin && (
+                    <button
+                      type="button"
+                      onClick={() => setSuperadmin(u, !u.is_superadmin)}
+                      disabled={roleChanging === u.id}
+                      className="me-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-ink-700 hover:bg-ink-100 disabled:opacity-50"
+                      title={u.is_superadmin ? "Revert to normal user" : "Make superadmin"}
+                    >
+                      <Crown size={14} />
+                    </button>
+                  )}
                   {role === "superadmin" && (
                     <button
                       type="button"
@@ -345,7 +401,7 @@ export function UsersTable({
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-ink-500">
+                <td colSpan={8} className="px-3 py-6 text-center text-ink-500">
                   No users found.
                 </td>
               </tr>
@@ -359,11 +415,15 @@ export function UsersTable({
       </p>
       <Pagination page={page_} totalPages={totalPages} onChange={setPage} />
 
+      {roleError && <p className="mt-3 text-bodys text-danger-500">{roleError}</p>}
+
       <p className="mt-3 text-caption text-ink-500">
-        Signed in as <span className="font-medium">{role}</span>. &ldquo;Deactivate&rdquo; is a reversible
-        in-app flag only — it hides the account from safety checks and caregiver views without deleting
-        anything. &ldquo;Delete&rdquo; (superadmin-only) is permanent: it removes the account&apos;s sign-in
-        and every medicine, dose log, and chat message tied to it.
+        Signed in as <span className="font-medium">{role}</span>. There is no separate admin tier — a user is
+        either a superadmin or a normal user, and only {ORIGINAL_SUPERADMIN_EMAIL} can grant or revoke
+        superadmin status (the crown icon, shown only to that account). &ldquo;Deactivate&rdquo; is a
+        reversible in-app flag only — it hides the account from safety checks and caregiver views without
+        deleting anything. &ldquo;Delete&rdquo; (superadmin-only) is permanent: it removes the account&apos;s
+        sign-in and every medicine, dose log, and chat message tied to it.
       </p>
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit user">

@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/supabase/admin";
 import { UsersTable } from "./UsersTable";
 
 export default async function AdminUsersPage() {
-  const { supabase, role } = await requireAdmin();
+  const { supabase, user, role } = await requireAdmin();
 
   const { data: users, error } = await supabase.rpc("admin_list_users");
 
@@ -17,7 +17,7 @@ export default async function AdminUsersPage() {
 
       {error && <p className="mb-4 text-bodys text-danger-500">Failed to load users: {error.message}</p>}
 
-      <UsersTable users={users ?? []} role={role} />
+      <UsersTable users={users ?? []} role={role} callerEmail={user.email ?? null} />
     </div>
   );
 }
