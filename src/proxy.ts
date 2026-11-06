@@ -29,9 +29,13 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() verifies the JWT signature locally instead of calling
+  // Supabase's Auth server like getUser() does — this proxy runs on every
+  // request (and every tab-link prefetch), so that network hop was paid
+  // constantly. It still refreshes an about-to-expire session (via setAll
+  // above) and rejects forged or expired tokens.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const user = claimsData?.claims?.sub ? claimsData.claims : null;
 
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p)) || pathname === "/";

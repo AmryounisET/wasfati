@@ -31,17 +31,22 @@ export async function createClient() {
   );
 }
 
-// supabase.auth.getUser() re-validates the JWT against Supabase's Auth
-// server on every call — a real network round-trip, not a local cookie
-// decode. A single request often renders a layout and a page (and
-// sometimes nested components) that each want the current user, so without
-// memoization that's 2-3 round-trips before any real data query even
-// starts. `cache()` makes every call within one request share the same
-// in-flight/resolved call.
+// The signed-in user's id/email, verified without a network call.
+// supabase.auth.getUser() asks Supabase's Auth server to re-validate the JWT
+// on every call — a cross-region round-trip (~150-250ms from the app's
+// Vercel region to the database region) paid by the proxy AND the layout on
+// every navigation. getClaims() verifies the JWT signature locally against
+// the project's cached signing keys (tokens here are ES256) in ~1ms, and
+// still rejects forged or expired tokens. Trade-off: a deleted/signed-out
+// user's token stays valid until it expires (~1h); every data query is
+// still checked by RLS, and privileged admin actions re-verify the caller
+// in their own Edge Function.
+//
+// `cache()` makes every call within one request share the same result.
 export const getUser = cache(async () => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
 });
